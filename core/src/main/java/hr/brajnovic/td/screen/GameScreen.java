@@ -77,6 +77,7 @@ public class GameScreen implements Screen {
     private Label goldLabel;
     private Label livesLabel;
     private Label waveLabel;
+    private Label nextWaveTimerLabel;
     private TextButton startWaveButton;
     private TextButton arrowTowerButton;
 
@@ -186,6 +187,15 @@ public class GameScreen implements Screen {
 
         root.add(new Label("Brajnovic TD", skin, "window")).left().row();
 
+        TextButton menuButton = new TextButton("Menu", skin);
+        menuButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                game.setScreen(new MenuScreen(game));
+            }
+        });
+        root.add(menuButton).padTop(12).width(160).left().row();
+
         goldLabel = new Label("", skin);
         livesLabel = new Label("", skin);
         waveLabel = new Label("", skin);
@@ -207,7 +217,12 @@ public class GameScreen implements Screen {
         });
         root.add(arrowTowerButton).padTop(24).width(200).left().row();
 
-        startWaveButton = new TextButton("Start Wave", skin);
+        root.add().expandY().row();
+
+        nextWaveTimerLabel = new Label("", skin);
+        root.add(nextWaveTimerLabel).padBottom(8).left().row();
+
+        startWaveButton = new TextButton("START WAVE", skin);
         startWaveButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -215,16 +230,7 @@ public class GameScreen implements Screen {
                 waveController.startNextWave();
             }
         });
-        root.add(startWaveButton).padTop(12).width(200).left().row();
-
-        TextButton menuButton = new TextButton("Menu", skin);
-        menuButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                game.setScreen(new MenuScreen(game));
-            }
-        });
-        root.add(menuButton).padTop(32).width(160).left();
+        root.add(startWaveButton).width(200).left();
     }
 
     private void buildOverlay() {
@@ -272,6 +278,12 @@ public class GameScreen implements Screen {
         if (!buildPhase) {
             selectedTowerId = null;
         }
+
+        nextWaveTimerLabel.setText(
+            waveController.isBuildPhaseTimerActive()
+                ? "Next wave in: " + waveController.getBuildPhaseSecondsRemaining() + "s"
+                : ""
+        );
     }
 
     @Override

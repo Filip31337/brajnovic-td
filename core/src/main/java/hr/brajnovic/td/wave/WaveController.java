@@ -1,6 +1,7 @@
 package hr.brajnovic.td.wave;
 
 import com.badlogic.gdx.math.GridPoint2;
+import com.badlogic.gdx.math.MathUtils;
 import hr.brajnovic.td.economy.Economy;
 import hr.brajnovic.td.enemy.Enemy;
 import hr.brajnovic.td.enemy.EnemyDefinition;
@@ -17,6 +18,7 @@ import java.util.List;
 public class WaveController {
 
     private static final float SPAWN_INTERVAL_SECONDS = 0.6f;
+    private static final float BUILD_PHASE_DURATION_SECONDS = 20f;
 
     private final LevelDefinition level;
     private final EnemyRegistry enemyRegistry;
@@ -28,6 +30,7 @@ public class WaveController {
     private int currentWaveNumber = 0;
     private int enemiesRemainingToSpawn = 0;
     private float spawnTimer = 0f;
+    private float buildPhaseTimer = BUILD_PHASE_DURATION_SECONDS;
 
     public WaveController(LevelDefinition level, EnemyRegistry enemyRegistry, GridMap gridMap, Economy economy) {
         this.level = level;
@@ -56,6 +59,15 @@ public class WaveController {
         return phase == GamePhase.BUILD && currentWaveNumber < level.waveCount;
     }
 
+    public int getBuildPhaseSecondsRemaining() {
+        return Math.max(0, MathUtils.ceil(buildPhaseTimer));
+    }
+
+    /** The very first build phase of a level has no auto-start timer, giving the player unlimited setup time. */
+    public boolean isBuildPhaseTimerActive() {
+        return canStartNextWave() && currentWaveNumber > 0;
+    }
+
     public boolean allWavesCleared() {
         return phase == GamePhase.BUILD && currentWaveNumber >= level.waveCount;
     }
@@ -77,7 +89,8 @@ public class WaveController {
     }
 
     public void update(float delta) {
-        if (phase != GamePhase.WAVE) {
+        if (phase == GamePhase.BUILD) {
+            updateBuildPhase(delta);
             return;
         }
 
@@ -86,6 +99,16 @@ public class WaveController {
 
         if (enemiesRemainingToSpawn <= 0 && activeEnemies.isEmpty()) {
             completeWave();
+        }
+    }
+
+    private void updateBuildPhase(float delta) {
+        if (!isBuildPhaseTimerActive()) {
+            return;
+        }
+        buildPhaseTimer -= delta;
+        if (buildPhaseTimer <= 0f) {
+            startNextWave();
         }
     }
 
@@ -151,5 +174,6 @@ public class WaveController {
         int bonus = Math.round(level.waveClearGoldBonusBase * (float) Math.pow(level.waveClearGoldBonusScalePerWave, currentWaveNumber - 1));
         economy.addGold(bonus);
         phase = GamePhase.BUILD;
+        buildPhaseTimer = BUILD_PHASE_DURATION_SECONDS;
     }
 }
