@@ -11,17 +11,33 @@ Tower defense maze game, build towers to block enemies to reach finish line.
 - **Gradle** — build system (multi-module: `core` + `lwjgl3`)
 - **LWJGL3** — desktop backend
 - **Tiled** (`.tmx`) — level/grid editor
+- **Python 3.12+** with **[Pillow](https://python-pillow.org/)** — only needed for the sprite tooling in `tools/` (see below), not for running or building the game
 
 ## Project Structure
 
 ```
 brajnovic-td/
-├── core/      ← all game logic (platform-independent)
-├── lwjgl3/    ← desktop launcher
-├── assets/    ← everything the game loads (maps, JSON definitions, UI skin)
+├── core/          ← all game logic (platform-independent)
+├── lwjgl3/        ← desktop launcher
+├── assets/        ← everything the game loads (maps, JSON definitions, UI skin)
+│   └── sprites-src/  ← hand-authored sprite sheets (PNG + frame-rect JSON), loaded directly at runtime
+├── tools/         ← sprite pipeline scripts (Python)
 ├── build.gradle
 └── settings.gradle
 ```
+
+## Sprite Tooling
+
+Enemies are hand-drawn in 5 directions (N, NE, E, SE, S); the remaining 3 (W, NW, SW) are generated
+by horizontally flipping their mirrored counterparts:
+
+```
+pip install -r tools/requirements.txt
+python tools/flip_sprite_directions.py orc_atlas
+```
+
+Reads/writes `assets/sprites-src/orc_atlas.png` + `.json` in place. Safe to re-run — already-generated
+directions are skipped.
 
 ## How to Run
 
