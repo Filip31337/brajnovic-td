@@ -12,6 +12,9 @@ public class EnemyDefinition {
     public int goldReward;
     public int livesDamage;
 
+    /** Base name of the sprites-src sheet (PNG + JSON) under assets/sprites-src/, e.g. "orc_atlas". */
+    public String spriteSheetId;
+
     /** Prepared for V2 elemental towers: damageType -> multiplier. Empty while damage is flat. */
     public ObjectMap<String, Float> resistances;
 }

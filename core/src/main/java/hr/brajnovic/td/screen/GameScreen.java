@@ -8,6 +8,8 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
@@ -35,6 +37,7 @@ import hr.brajnovic.td.enemy.EnemyRegistry;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
 import hr.brajnovic.td.map.LevelLoader;
+import hr.brajnovic.td.render.SpriteSheet;
 import hr.brajnovic.td.tower.Projectile;
 import hr.brajnovic.td.tower.Tower;
 import hr.brajnovic.td.tower.TowerDefinition;
@@ -44,11 +47,14 @@ import hr.brajnovic.td.wave.GamePhase;
 import hr.brajnovic.td.wave.WaveController;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GameScreen implements Screen {
 
     private static final int SCALE = GameConstants.SCALED_TILE_SIZE_PX;
+    private static final float ENEMY_FRAME_DURATION_SECONDS = 0.12f;
 
     private final BrajnovicTD game;
 
@@ -68,6 +74,8 @@ public class GameScreen implements Screen {
     private final OrthographicCamera mapCamera;
     private final Viewport mapViewport;
     private final ShapeRenderer shapeRenderer;
+    private final SpriteBatch spriteBatch;
+    private final Map<String, SpriteSheet> enemySpriteSheetsById = new HashMap<>();
 
     private final Stage hudStage;
     private final Stage overlayStage;
@@ -110,6 +118,13 @@ public class GameScreen implements Screen {
             mapCamera
         );
         shapeRenderer = new ShapeRenderer();
+        spriteBatch = new SpriteBatch();
+        for (var definition : enemyRegistry.all()) {
+            if (definition.spriteSheetId != null) {
+                enemySpriteSheetsById.computeIfAbsent(definition.spriteSheetId,
+                    id -> SpriteSheet.loadFromInternal("sprites-src/" + id));
+            }
+        }
 
         skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
         hudStage = new Stage(new ScreenViewport());
@@ -329,6 +344,14 @@ public class GameScreen implements Screen {
 
     private void renderEntities() {
         Gdx.gl.glEnable(GL20.GL_BLEND);
+
+        spriteBatch.setProjectionMatrix(mapCamera.combined);
+        spriteBatch.begin();
+        for (Enemy enemy : waveController.getActiveEnemies()) {
+            drawEnemySprite(enemy);
+        }
+        spriteBatch.end();
+
         shapeRenderer.setProjectionMatrix(mapCamera.combined);
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -336,7 +359,7 @@ public class GameScreen implements Screen {
             drawTower(tower);
         }
         for (Enemy enemy : waveController.getActiveEnemies()) {
-            drawEnemy(enemy);
+            drawEnemyHpBar(enemy);
         }
         Vector2 projectilePosition = new Vector2();
         for (Projectile projectile : projectiles) {
@@ -376,12 +399,23 @@ public class GameScreen implements Screen {
         shapeRenderer.rectLine(px, py, endX, endY, 3f);
     }
 
-    private void drawEnemy(Enemy enemy) {
+    private void drawEnemySprite(Enemy enemy) {
+        SpriteSheet sheet = enemySpriteSheetsById.get(enemy.getDefinition().spriteSheetId);
+        if (sheet == null) {
+            return;
+        }
+        TextureRegion[] frames = sheet.getAnimation("walk_" + enemy.getFacingDirection());
+        int frameIndex = (int) (enemy.getAnimationTime() / ENEMY_FRAME_DURATION_SECONDS) % frames.length;
+        TextureRegion frame = frames[frameIndex];
+
         float px = enemy.getPosition().x * SCALE;
         float py = enemy.getPosition().y * SCALE;
+        spriteBatch.draw(frame, px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
+    }
 
-        shapeRenderer.setColor(Color.FIREBRICK);
-        shapeRenderer.circle(px, py, SCALE * 0.28f);
+    private void drawEnemyHpBar(Enemy enemy) {
+        float px = enemy.getPosition().x * SCALE;
+        float py = enemy.getPosition().y * SCALE;
 
         float hpRatio = Math.max(0f, enemy.getHp() / enemy.getMaxHp());
         float barWidth = SCALE * 0.6f;
@@ -452,6 +486,10 @@ public class GameScreen implements Screen {
     @Override
     public void dispose() {
         shapeRenderer.dispose();
+        spriteBatch.dispose();
+        for (SpriteSheet sheet : enemySpriteSheetsById.values()) {
+            sheet.dispose();
+        }
         mapRenderer.dispose();
         tiledMap.dispose();
         hudStage.dispose();

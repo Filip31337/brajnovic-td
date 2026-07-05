@@ -1,12 +1,16 @@
 package hr.brajnovic.td.enemy;
 
 import com.badlogic.gdx.math.GridPoint2;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 
 import java.util.List;
 
 /** A single active enemy walking a precomputed waypoint path (tile-unit coordinates). */
 public class Enemy {
+
+    /** 8-way facing order matching increasing atan2 angle (E=0deg, going counter-clockwise). */
+    private static final String[] FACING_DIRECTIONS = {"E", "NE", "N", "NW", "W", "SW", "S", "SE"};
 
     private final EnemyDefinition definition;
     private final List<GridPoint2> path;
@@ -17,6 +21,8 @@ public class Enemy {
     private float hp;
     private float distanceTraveled = 0f;
     private boolean reachedGoal = false;
+    private String facingDirection = "S";
+    private float animationTime = 0f;
 
     public Enemy(EnemyDefinition definition, List<GridPoint2> path, float hpMultiplier) {
         this.definition = definition;
@@ -36,6 +42,8 @@ public class Enemy {
             return;
         }
 
+        animationTime += delta;
+
         GridPoint2 waypoint = path.get(waypointIndex);
         float targetX = waypoint.x + 0.5f;
         float targetY = waypoint.y + 0.5f;
@@ -43,6 +51,8 @@ public class Enemy {
         float dy = targetY - position.y;
         float distance = (float) Math.sqrt(dx * dx + dy * dy);
         float step = definition.speedTilesPerSec * delta;
+
+        facingDirection = directionFromDelta(dx, dy);
 
         if (step >= distance) {
             distanceTraveled += distance;
@@ -56,6 +66,23 @@ public class Enemy {
             position.x += dx / distance * step;
             position.y += dy / distance * step;
         }
+    }
+
+    private static String directionFromDelta(float dx, float dy) {
+        float angleDeg = MathUtils.atan2(dy, dx) * MathUtils.radiansToDegrees;
+        if (angleDeg < 0f) {
+            angleDeg += 360f;
+        }
+        int index = Math.round(angleDeg / 45f) % FACING_DIRECTIONS.length;
+        return FACING_DIRECTIONS[index];
+    }
+
+    public String getFacingDirection() {
+        return facingDirection;
+    }
+
+    public float getAnimationTime() {
+        return animationTime;
     }
 
     public Vector2 getVelocity() {
