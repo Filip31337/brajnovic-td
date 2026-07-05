@@ -55,6 +55,8 @@ public class GameScreen implements Screen {
 
     private static final int SCALE = GameConstants.SCALED_TILE_SIZE_PX;
     private static final float ENEMY_FRAME_DURATION_SECONDS = 0.12f;
+    private static final float TOWER_IDLE_FRAME_DURATION_SECONDS = 0.5f;
+    private static final float PROJECTILE_FRAME_DURATION_SECONDS = 0.08f;
 
     private final BrajnovicTD game;
 
@@ -76,6 +78,7 @@ public class GameScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
     private final SpriteBatch spriteBatch;
     private final Map<String, SpriteSheet> enemySpriteSheetsById = new HashMap<>();
+    private final Map<String, SpriteSheet> towerSpriteSheetsById = new HashMap<>();
 
     private final Stage hudStage;
     private final Stage overlayStage;
@@ -122,6 +125,12 @@ public class GameScreen implements Screen {
         for (var definition : enemyRegistry.all()) {
             if (definition.spriteSheetId != null) {
                 enemySpriteSheetsById.computeIfAbsent(definition.spriteSheetId,
+                    id -> SpriteSheet.loadFromInternal("sprites-src/" + id));
+            }
+        }
+        for (var definition : towerRegistry.all()) {
+            if (definition.spriteSheetId != null) {
+                towerSpriteSheetsById.computeIfAbsent(definition.spriteSheetId,
                     id -> SpriteSheet.loadFromInternal("sprites-src/" + id));
             }
         }
@@ -347,28 +356,25 @@ public class GameScreen implements Screen {
 
         spriteBatch.setProjectionMatrix(mapCamera.combined);
         spriteBatch.begin();
+        for (Tower tower : towers) {
+            drawTowerSprite(tower);
+        }
         for (Enemy enemy : waveController.getActiveEnemies()) {
             drawEnemySprite(enemy);
+        }
+        for (Projectile projectile : projectiles) {
+            drawProjectileSprite(projectile);
+        }
+        if (selectedTowerId != null && gridMap.isInBounds(hoverTileX, hoverTileY)) {
+            drawGhostSprite();
         }
         spriteBatch.end();
 
         shapeRenderer.setProjectionMatrix(mapCamera.combined);
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        for (Tower tower : towers) {
-            drawTower(tower);
-        }
         for (Enemy enemy : waveController.getActiveEnemies()) {
             drawEnemyHpBar(enemy);
-        }
-        Vector2 projectilePosition = new Vector2();
-        for (Projectile projectile : projectiles) {
-            projectile.getCurrentPosition(projectilePosition);
-            shapeRenderer.setColor(Color.YELLOW);
-            shapeRenderer.circle(projectilePosition.x * SCALE, projectilePosition.y * SCALE, 3f);
-        }
-        if (selectedTowerId != null && gridMap.isInBounds(hoverTileX, hoverTileY)) {
-            drawGhost();
         }
         shapeRenderer.end();
 
@@ -385,18 +391,37 @@ public class GameScreen implements Screen {
         shapeRenderer.end();
     }
 
-    private void drawTower(Tower tower) {
+    private void drawTowerSprite(Tower tower) {
+        SpriteSheet sheet = towerSpriteSheetsById.get(tower.getDefinition().spriteSheetId);
+        if (sheet == null) {
+            return;
+        }
         float px = tower.getPosition().x * SCALE;
         float py = tower.getPosition().y * SCALE;
 
-        shapeRenderer.setColor(0.25f, 0.4f, 0.85f, 1f);
-        shapeRenderer.circle(px, py, SCALE * 0.35f);
+        TextureRegion base = sheet.getAnimation("base")[0];
+        spriteBatch.draw(base, px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
 
-        float barrelLength = SCALE * 0.4f;
-        float endX = px + MathUtils.cosDeg(tower.getTurretAngleDeg()) * barrelLength;
-        float endY = py + MathUtils.sinDeg(tower.getTurretAngleDeg()) * barrelLength;
-        shapeRenderer.setColor(Color.NAVY);
-        shapeRenderer.rectLine(px, py, endX, endY, 3f);
+        TextureRegion[] turretFrames;
+        int turretFrameIndex;
+        float rotation = tower.getTurretAngleDeg() - 90f + tower.getDefinition().spriteRotationOffsetDeg;
+        if (tower.isFiring()) {
+            turretFrames = sheet.getAnimation("turret_shoot");
+            float shootProgress = MathUtils.clamp(
+                tower.getTimeSinceLastShot() / tower.getDefinition().shootAnimationDurationSeconds, 0f, 1f);
+            turretFrameIndex = MathUtils.clamp((int) (shootProgress * turretFrames.length), 0, turretFrames.length - 1);
+        } else {
+            turretFrames = sheet.getAnimation("turret_idle");
+            // Only cycle the idle sway animation during true idle spin; while actively tracking a
+            // target between shots, hold a static pose so tracking rotation reads as one continuous motion.
+            turretFrameIndex = tower.hasTarget()
+                ? 0
+                : (int) (tower.getTimeSinceLastShot() / TOWER_IDLE_FRAME_DURATION_SECONDS) % turretFrames.length;
+        }
+        float originX = sheet.getPivotX() * GameConstants.TILE_SCALE;
+        float originY = sheet.getPivotY() * GameConstants.TILE_SCALE;
+        float turretPy = py + tower.getDefinition().turretVerticalOffsetTiles * SCALE;
+        spriteBatch.draw(turretFrames[turretFrameIndex], px - originX, turretPy - originY, originX, originY, SCALE, SCALE, 1f, 1f, rotation);
     }
 
     private void drawEnemySprite(Enemy enemy) {
@@ -426,15 +451,50 @@ public class GameScreen implements Screen {
         shapeRenderer.rect(px - barWidth / 2f, barY, barWidth * hpRatio, 4f);
     }
 
-    private void drawGhost() {
+    private void drawProjectileSprite(Projectile projectile) {
+        SpriteSheet sheet = towerSpriteSheetsById.get(projectile.getSpriteSheetId());
+        if (sheet == null) {
+            return;
+        }
+        Vector2 position = projectile.getCurrentPosition(new Vector2());
+        float px = position.x * SCALE;
+        float py = position.y * SCALE;
+
+        if (projectile.isImpacting()) {
+            TextureRegion[] frames = sheet.getAnimation("projectile_impact");
+            int frameIndex = MathUtils.clamp((int) (projectile.getImpactProgress() * frames.length), 0, frames.length - 1);
+            spriteBatch.draw(frames[frameIndex], px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
+        } else {
+            TextureRegion[] frames = sheet.getAnimation("projectile_fly");
+            int frameIndex = (int) (projectile.getFlightElapsedSeconds() / PROJECTILE_FRAME_DURATION_SECONDS) % frames.length;
+            float originX = SCALE / 2f;
+            float originY = SCALE / 2f;
+            spriteBatch.draw(frames[frameIndex], px - originX, py - originY, originX, originY, SCALE, SCALE, 1f, 1f, projectile.getTravelAngleDeg());
+        }
+    }
+
+    private void drawGhostSprite() {
         TowerDefinition definition = towerRegistry.get(selectedTowerId);
+        SpriteSheet sheet = towerSpriteSheetsById.get(definition.spriteSheetId);
+        if (sheet == null) {
+            return;
+        }
         boolean valid = TowerPlacementValidator.canPlaceTowerAt(gridMap, hoverTileX, hoverTileY)
             && economy.getGold() >= definition.cost;
 
-        shapeRenderer.setColor(valid ? new Color(0f, 1f, 0f, 0.45f) : new Color(1f, 0f, 0f, 0.45f));
         float px = (hoverTileX + 0.5f) * SCALE;
         float py = (hoverTileY + 0.5f) * SCALE;
-        shapeRenderer.circle(px, py, SCALE * 0.35f);
+
+        spriteBatch.setColor(valid ? 0f : 1f, valid ? 1f : 0f, 0f, 0.55f);
+        TextureRegion base = sheet.getAnimation("base")[0];
+        spriteBatch.draw(base, px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
+
+        TextureRegion turret = sheet.getAnimation("turret_idle")[0];
+        float originX = sheet.getPivotX() * GameConstants.TILE_SCALE;
+        float originY = sheet.getPivotY() * GameConstants.TILE_SCALE;
+        float turretPy = py + definition.turretVerticalOffsetTiles * SCALE;
+        spriteBatch.draw(turret, px - originX, turretPy - originY, originX, originY, SCALE, SCALE, 1f, 1f, definition.spriteRotationOffsetDeg);
+        spriteBatch.setColor(Color.WHITE);
     }
 
     private void drawRangeCircle(float centerTileX, float centerTileY, float radiusTiles) {
@@ -488,6 +548,9 @@ public class GameScreen implements Screen {
         shapeRenderer.dispose();
         spriteBatch.dispose();
         for (SpriteSheet sheet : enemySpriteSheetsById.values()) {
+            sheet.dispose();
+        }
+        for (SpriteSheet sheet : towerSpriteSheetsById.values()) {
             sheet.dispose();
         }
         mapRenderer.dispose();

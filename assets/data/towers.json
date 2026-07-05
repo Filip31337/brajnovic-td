@@ -11,6 +11,12 @@
     "turretTrackingDegPerSec": 180,
     "fireAngleThresholdDeg": 5,
     "damageType": "physical",
-    "shootSoundId": "arrow_tower_shoot"
+    "shootSoundId": "arrow_tower_shoot",
+    "spriteSheetId": "tower_atlas",
+    "spriteRotationOffsetDeg": 90,
+    "turretVerticalOffsetTiles": 0.15,
+    "projectileSpriteRotationOffsetDeg": 0,
+    "shootAnimationDurationSeconds": 0.3,
+    "projectileImpactDurationSeconds": 0.2
   }
 ]

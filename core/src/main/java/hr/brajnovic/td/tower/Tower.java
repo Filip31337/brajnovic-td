@@ -16,6 +16,7 @@ public class Tower {
 
     private float turretAngleDeg = 90f;
     private float fireCooldown = 0f;
+    private float timeSinceLastShot = Float.MAX_VALUE;
     private Enemy target;
 
     public Tower(TowerDefinition definition, int gridX, int gridY) {
@@ -27,6 +28,7 @@ public class Tower {
 
     public void update(float delta, List<Enemy> candidates, List<Projectile> projectilesOut) {
         fireCooldown = Math.max(0f, fireCooldown - delta);
+        timeSinceLastShot += delta;
         retarget(candidates);
 
         if (target != null) {
@@ -64,8 +66,11 @@ public class Tower {
 
     private void fire(List<Projectile> projectilesOut) {
         fireCooldown = 1f / definition.fireRatePerSecond;
+        timeSinceLastShot = 0f;
         Vector2 predictedImpact = predictImpactPosition(target, definition.projectileSpeedTilesPerSec);
-        projectilesOut.add(new Projectile(position, predictedImpact, target, definition.damage, definition.projectileSpeedTilesPerSec));
+        projectilesOut.add(new Projectile(position, predictedImpact, target, definition.damage,
+            definition.projectileSpeedTilesPerSec, definition.projectileImpactDurationSeconds,
+            definition.projectileSpriteRotationOffsetDeg, definition.spriteSheetId));
     }
 
     private Vector2 predictImpactPosition(Enemy enemy, float projectileSpeed) {
@@ -155,5 +160,18 @@ public class Tower {
 
     public float getTurretAngleDeg() {
         return turretAngleDeg;
+    }
+
+    public boolean isFiring() {
+        return timeSinceLastShot < definition.shootAnimationDurationSeconds;
+    }
+
+    /** True while actively tracking a target (even between shots), as opposed to true idle spin. */
+    public boolean hasTarget() {
+        return target != null;
+    }
+
+    public float getTimeSinceLastShot() {
+        return timeSinceLastShot;
     }
 }
