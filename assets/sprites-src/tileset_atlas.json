@@ -22,25 +22,25 @@
       "w": 32,
       "h": 32
     },
-    "cliff_edge_a": {
+    "rocks_a": {
       "x": 96,
       "y": 0,
       "w": 32,
       "h": 32
     },
-    "cliff_edge_b": {
+    "rocks_b": {
       "x": 0,
       "y": 32,
       "w": 32,
       "h": 32
     },
-    "cliff_corner": {
+    "rocks_c": {
       "x": 32,
       "y": 32,
       "w": 32,
       "h": 32
     },
-    "spawn": {
+    "rocks_spawn_cave": {
       "x": 64,
       "y": 32,
       "w": 32,
