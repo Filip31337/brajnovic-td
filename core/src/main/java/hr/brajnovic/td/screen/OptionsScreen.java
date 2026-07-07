@@ -15,13 +15,13 @@ import hr.brajnovic.td.BrajnovicTD;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.ui.SkinFactory;
 
-public class MenuScreen implements Screen {
+public class OptionsScreen implements Screen {
 
     private final BrajnovicTD game;
     private final Stage stage;
     private final Skin skin;
 
-    public MenuScreen(BrajnovicTD game) {
+    public OptionsScreen(BrajnovicTD game) {
         this.game = game;
         this.stage = new Stage(new ScreenViewport());
         this.skin = SkinFactory.createSkin();
@@ -30,35 +30,42 @@ public class MenuScreen implements Screen {
         root.setFillParent(true);
         stage.addActor(root);
 
-        Label title = new Label(Localization.get("app.title"), skin, "window");
-        root.add(title).padBottom(40).row();
+        Label title = new Label(Localization.get("options.title"), skin, "window");
+        root.add(title).colspan(2).padBottom(40).row();
 
-        TextButton playButton = new TextButton(Localization.get("menu.play"), skin);
-        playButton.addListener(new ChangeListener() {
+        Label languageLabel = new Label(Localization.get("options.language"), skin);
+        root.add(languageLabel).colspan(2).padBottom(12).row();
+
+        TextButton croatianButton = new TextButton("Hrvatski", skin);
+        croatianButton.setDisabled(Localization.LANGUAGE_CROATIAN.equals(Localization.getLanguage()));
+        croatianButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                game.setScreen(new GameScreen(game));
-            }
-        });
-        root.add(playButton).width(200).padBottom(20).row();
-
-        TextButton optionsButton = new TextButton(Localization.get("menu.options"), skin);
-        optionsButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
+                Localization.setLanguage(Localization.LANGUAGE_CROATIAN);
                 game.setScreen(new OptionsScreen(game));
             }
         });
-        root.add(optionsButton).width(200).padBottom(20).row();
+        root.add(croatianButton).width(160).padRight(12).padBottom(30);
 
-        TextButton quitButton = new TextButton(Localization.get("menu.quit"), skin);
-        quitButton.addListener(new ChangeListener() {
+        TextButton englishButton = new TextButton("English", skin);
+        englishButton.setDisabled(Localization.LANGUAGE_ENGLISH.equals(Localization.getLanguage()));
+        englishButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                Gdx.app.exit();
+                Localization.setLanguage(Localization.LANGUAGE_ENGLISH);
+                game.setScreen(new OptionsScreen(game));
             }
         });
-        root.add(quitButton).width(200);
+        root.add(englishButton).width(160).padBottom(30).row();
+
+        TextButton backButton = new TextButton(Localization.get("options.back"), skin);
+        backButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                game.setScreen(new MenuScreen(game));
+            }
+        });
+        root.add(backButton).colspan(2).width(200);
     }
 
     @Override

@@ -34,6 +34,7 @@ import hr.brajnovic.td.GameConstants;
 import hr.brajnovic.td.economy.Economy;
 import hr.brajnovic.td.enemy.Enemy;
 import hr.brajnovic.td.enemy.EnemyRegistry;
+import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
 import hr.brajnovic.td.map.LevelLoader;
@@ -43,6 +44,7 @@ import hr.brajnovic.td.tower.Tower;
 import hr.brajnovic.td.tower.TowerDefinition;
 import hr.brajnovic.td.tower.TowerPlacementValidator;
 import hr.brajnovic.td.tower.TowerRegistry;
+import hr.brajnovic.td.ui.SkinFactory;
 import hr.brajnovic.td.wave.GamePhase;
 import hr.brajnovic.td.wave.WaveController;
 
@@ -135,7 +137,7 @@ public class GameScreen implements Screen {
             }
         }
 
-        skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
+        skin = SkinFactory.createSkin();
         hudStage = new Stage(new ScreenViewport());
         overlayStage = new Stage(new ScreenViewport());
         buildHud();
@@ -209,9 +211,9 @@ public class GameScreen implements Screen {
         root.top().pad(16);
         hudStage.addActor(root);
 
-        root.add(new Label("Brajnovic TD", skin, "window")).left().row();
+        root.add(new Label(Localization.get("app.title"), skin, "window")).left().row();
 
-        TextButton menuButton = new TextButton("Menu", skin);
+        TextButton menuButton = new TextButton(Localization.get("hud.menu"), skin);
         menuButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -246,7 +248,7 @@ public class GameScreen implements Screen {
         nextWaveTimerLabel = new Label("", skin);
         root.add(nextWaveTimerLabel).padBottom(8).left().row();
 
-        startWaveButton = new TextButton("START WAVE", skin);
+        startWaveButton = new TextButton(Localization.get("hud.startWave"), skin);
         startWaveButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -264,7 +266,7 @@ public class GameScreen implements Screen {
         overlayMessageLabel = new Label("", skin);
         overlayWindow.add(overlayMessageLabel).pad(20).row();
 
-        TextButton retryButton = new TextButton("Retry", skin);
+        TextButton retryButton = new TextButton(Localization.get("overlay.retry"), skin);
         retryButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -292,9 +294,9 @@ public class GameScreen implements Screen {
     }
 
     private void updateHud() {
-        goldLabel.setText("Gold: " + economy.getGold());
-        livesLabel.setText("Lives: " + economy.getLives());
-        waveLabel.setText("Wave: " + waveController.getCurrentWaveNumber() + " / " + waveController.getTotalWaveCount());
+        goldLabel.setText(Localization.format("hud.gold", economy.getGold()));
+        livesLabel.setText(Localization.format("hud.lives", economy.getLives()));
+        waveLabel.setText(Localization.format("hud.wave", waveController.getCurrentWaveNumber(), waveController.getTotalWaveCount()));
 
         boolean buildPhase = waveController.getPhase() == GamePhase.BUILD;
         startWaveButton.setDisabled(!waveController.canStartNextWave());
@@ -305,7 +307,7 @@ public class GameScreen implements Screen {
 
         nextWaveTimerLabel.setText(
             waveController.isBuildPhaseTimerActive()
-                ? "Next wave in: " + waveController.getBuildPhaseSecondsRemaining() + "s"
+                ? Localization.format("hud.nextWaveIn", waveController.getBuildPhaseSecondsRemaining())
                 : ""
         );
     }
@@ -326,10 +328,10 @@ public class GameScreen implements Screen {
 
             if (economy.isGameOver()) {
                 gameEnded = true;
-                showOverlay("Game Over", "Ostao si bez zivota.");
+                showOverlay(Localization.get("overlay.gameOver.title"), Localization.get("overlay.gameOver.message"));
             } else if (waveController.allWavesCleared()) {
                 gameEnded = true;
-                showOverlay("Pobjeda!", "Ocistio si sve valove.");
+                showOverlay(Localization.get("overlay.win.title"), Localization.get("overlay.win.message"));
             }
         }
 

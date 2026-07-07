@@ -18,7 +18,7 @@ import java.util.List;
 public class WaveController {
 
     private static final float SPAWN_INTERVAL_SECONDS = 0.6f;
-    private static final float BUILD_PHASE_DURATION_SECONDS = 20f;
+    private static final float BUILD_PHASE_DURATION_SECONDS = 60f;
 
     private final LevelDefinition level;
     private final EnemyRegistry enemyRegistry;
