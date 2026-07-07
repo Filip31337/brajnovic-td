@@ -2,9 +2,9 @@
   {
     "id": "arrow_tower",
     "name": "Arrow Tower",
-    "cost": 50,
+    "cost": 25,
     "rangeTiles": 3.5,
-    "damage": 10,
+    "damage": 5,
     "fireRatePerSecond": 1.5,
     "projectileSpeedTilesPerSec": 6,
     "turretIdleRevolutionSeconds": 3,
