@@ -1,7 +1,7 @@
 {
   "id": "level_01",
   "tmxPath": "maps/level_01.tmx",
-  "startingGold": 150,
+  "startingGold": 175,
   "startingLives": 20,
   "waveCount": 10,
   "baseEnemyId": "orc",
