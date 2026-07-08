@@ -93,6 +93,10 @@ public class GameScreen implements Screen {
     private Label nextWaveTimerLabel;
     private TextButton startWaveButton;
     private TextButton arrowTowerButton;
+    private TextButton pauseButton;
+    private TextButton normalSpeedButton;
+    private TextButton fastSpeedButton;
+    private float timeScale = 1f;
 
     private Window overlayWindow;
     private Label overlayMessageLabel;
@@ -248,6 +252,33 @@ public class GameScreen implements Screen {
         nextWaveTimerLabel = new Label("", skin);
         root.add(nextWaveTimerLabel).padBottom(8).left().row();
 
+        Table speedTable = new Table();
+        pauseButton = new TextButton(Localization.get("hud.pause"), skin);
+        pauseButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                timeScale = 0f;
+            }
+        });
+        normalSpeedButton = new TextButton("1x", skin);
+        normalSpeedButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                timeScale = 1f;
+            }
+        });
+        fastSpeedButton = new TextButton("2x", skin);
+        fastSpeedButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                timeScale = 2f;
+            }
+        });
+        speedTable.add(pauseButton).width(60).padRight(4);
+        speedTable.add(normalSpeedButton).width(60).padRight(4);
+        speedTable.add(fastSpeedButton).width(60);
+        root.add(speedTable).padBottom(8).left().row();
+
         startWaveButton = new TextButton(Localization.get("hud.startWave"), skin);
         startWaveButton.addListener(new ChangeListener() {
             @Override
@@ -303,7 +334,13 @@ public class GameScreen implements Screen {
         arrowTowerButton.setDisabled(!buildPhase);
         if (!buildPhase) {
             selectedTowerId = null;
+        } else {
+            timeScale = 1f;
         }
+
+        pauseButton.setDisabled(buildPhase || timeScale == 0f);
+        normalSpeedButton.setDisabled(buildPhase || timeScale == 1f);
+        fastSpeedButton.setDisabled(buildPhase || timeScale == 2f);
 
         nextWaveTimerLabel.setText(
             waveController.isBuildPhaseTimerActive()
@@ -320,11 +357,12 @@ public class GameScreen implements Screen {
     @Override
     public void render(float delta) {
         if (!gameEnded) {
-            waveController.update(delta);
+            float simDelta = waveController.getPhase() == GamePhase.WAVE ? delta * timeScale : delta;
+            waveController.update(simDelta);
             for (Tower tower : towers) {
-                tower.update(delta, waveController.getActiveEnemies(), projectiles);
+                tower.update(simDelta, waveController.getActiveEnemies(), projectiles);
             }
-            projectiles.removeIf(projectile -> !projectile.update(delta));
+            projectiles.removeIf(projectile -> !projectile.update(simDelta));
 
             if (economy.isGameOver()) {
                 gameEnded = true;
