@@ -1,7 +1,7 @@
 [
   {
     "id": "arrow_tower",
-    "name": "Arrow Tower",
+    "name": "tower.arrow_tower.name",
     "cost": 25,
     "rangeTiles": 3.5,
     "damage": 5,

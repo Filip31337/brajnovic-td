@@ -234,7 +234,7 @@ public class GameScreen implements Screen {
         root.add(waveLabel).padTop(4).left().row();
 
         TowerDefinition arrowTower = towerRegistry.get("arrow_tower");
-        arrowTowerButton = new TextButton(arrowTower.name + " (" + arrowTower.cost + "g)", skin);
+        arrowTowerButton = new TextButton(Localization.get(arrowTower.name) + " (" + arrowTower.cost + "g)", skin);
         arrowTowerButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {

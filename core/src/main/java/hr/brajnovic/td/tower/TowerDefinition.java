@@ -4,6 +4,7 @@ package hr.brajnovic.td.tower;
 public class TowerDefinition {
 
     public String id;
+    /** Localization key (e.g. "tower.arrow_tower.name") resolved via {@link hr.brajnovic.td.i18n.Localization}. */
     public String name;
     public int cost;
     public float rangeTiles;
