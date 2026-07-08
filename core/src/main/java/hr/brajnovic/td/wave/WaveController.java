@@ -1,17 +1,19 @@
 package hr.brajnovic.td.wave;
 
+import com.badlogic.ashley.core.Entity;
+import com.badlogic.ashley.core.Family;
+import com.badlogic.ashley.core.PooledEngine;
 import com.badlogic.gdx.math.GridPoint2;
 import com.badlogic.gdx.math.MathUtils;
+import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.economy.Economy;
-import hr.brajnovic.td.enemy.Enemy;
+import hr.brajnovic.td.enemy.EnemyComponent;
 import hr.brajnovic.td.enemy.EnemyDefinition;
 import hr.brajnovic.td.enemy.EnemyRegistry;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
 import hr.brajnovic.td.pathfinding.AStarPathfinder;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /** Build/Wave state machine: placement is only allowed while phase == BUILD. */
@@ -19,24 +21,27 @@ public class WaveController {
 
     private static final float SPAWN_INTERVAL_SECONDS = 0.6f;
     private static final float BUILD_PHASE_DURATION_SECONDS = 60f;
+    private static final Family ENEMY_FAMILY = Family.all(EnemyComponent.class).get();
 
     private final LevelDefinition level;
     private final EnemyRegistry enemyRegistry;
     private final GridMap gridMap;
     private final Economy economy;
-    private final List<Enemy> activeEnemies = new ArrayList<>();
+    private final PooledEngine engine;
 
     private GamePhase phase = GamePhase.BUILD;
     private int currentWaveNumber = 0;
     private int enemiesRemainingToSpawn = 0;
     private float spawnTimer = 0f;
     private float buildPhaseTimer = BUILD_PHASE_DURATION_SECONDS;
+    private int nextEnemySpawnId = 0;
 
-    public WaveController(LevelDefinition level, EnemyRegistry enemyRegistry, GridMap gridMap, Economy economy) {
+    public WaveController(LevelDefinition level, EnemyRegistry enemyRegistry, GridMap gridMap, Economy economy, PooledEngine engine) {
         this.level = level;
         this.enemyRegistry = enemyRegistry;
         this.gridMap = gridMap;
         this.economy = economy;
+        this.engine = engine;
     }
 
     public GamePhase getPhase() {
@@ -49,10 +54,6 @@ public class WaveController {
 
     public int getTotalWaveCount() {
         return level.waveCount;
-    }
-
-    public List<Enemy> getActiveEnemies() {
-        return activeEnemies;
     }
 
     public boolean canStartNextWave() {
@@ -95,11 +96,14 @@ public class WaveController {
         }
 
         updateSpawning(delta);
-        updateEnemies(delta);
 
-        if (enemiesRemainingToSpawn <= 0 && activeEnemies.isEmpty()) {
+        if (enemiesRemainingToSpawn <= 0 && countActiveEnemies() == 0) {
             completeWave();
         }
+    }
+
+    private int countActiveEnemies() {
+        return engine.getEntitiesFor(ENEMY_FAMILY).size();
     }
 
     private void updateBuildPhase(float delta) {
@@ -141,7 +145,24 @@ public class WaveController {
             return;
         }
 
-        activeEnemies.add(new Enemy(definition, path, hpMultiplier));
+        EnemyComponent enemyComponent = engine.createComponent(EnemyComponent.class);
+        enemyComponent.spawnId = nextEnemySpawnId++;
+        enemyComponent.definition = definition;
+        enemyComponent.path = path;
+        enemyComponent.maxHp = definition.maxHp * hpMultiplier;
+        enemyComponent.hp = enemyComponent.maxHp;
+        if (path.size() == 1) {
+            enemyComponent.reachedGoal = true;
+        }
+
+        PositionComponent positionComponent = engine.createComponent(PositionComponent.class);
+        GridPoint2 start = path.get(0);
+        positionComponent.value.set(start.x + 0.5f, start.y + 0.5f);
+
+        Entity entity = engine.createEntity();
+        entity.add(enemyComponent);
+        entity.add(positionComponent);
+        engine.addEntity(entity);
     }
 
     private GridPoint2 pickReachableGoal(GridPoint2 spawn) {
@@ -151,23 +172,6 @@ public class WaveController {
             }
         }
         throw new IllegalStateException("No reachable goal from spawn " + spawn);
-    }
-
-    private void updateEnemies(float delta) {
-        Iterator<Enemy> iterator = activeEnemies.iterator();
-        while (iterator.hasNext()) {
-            Enemy enemy = iterator.next();
-            if (enemy.isDead()) {
-                economy.addGold(enemy.getDefinition().goldReward);
-                iterator.remove();
-                continue;
-            }
-            enemy.update(delta);
-            if (enemy.hasReachedGoal()) {
-                economy.loseLives(enemy.getDefinition().livesDamage);
-                iterator.remove();
-            }
-        }
     }
 
     private void completeWave() {

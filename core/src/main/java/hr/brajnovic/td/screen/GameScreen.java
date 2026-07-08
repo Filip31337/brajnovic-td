@@ -1,5 +1,9 @@
 package hr.brajnovic.td.screen;
 
+import com.badlogic.ashley.core.Entity;
+import com.badlogic.ashley.core.Family;
+import com.badlogic.ashley.core.PooledEngine;
+import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
@@ -31,26 +35,29 @@ import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import hr.brajnovic.td.BrajnovicTD;
 import hr.brajnovic.td.GameConstants;
+import hr.brajnovic.td.ecs.Mappers;
+import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.economy.Economy;
-import hr.brajnovic.td.enemy.Enemy;
+import hr.brajnovic.td.enemy.EnemyComponent;
+import hr.brajnovic.td.enemy.EnemyLifecycleSystem;
 import hr.brajnovic.td.enemy.EnemyRegistry;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
 import hr.brajnovic.td.map.LevelLoader;
 import hr.brajnovic.td.render.SpriteSheet;
-import hr.brajnovic.td.tower.Projectile;
-import hr.brajnovic.td.tower.Tower;
+import hr.brajnovic.td.tower.ProjectileComponent;
+import hr.brajnovic.td.tower.ProjectileSystem;
+import hr.brajnovic.td.tower.TowerComponent;
 import hr.brajnovic.td.tower.TowerDefinition;
 import hr.brajnovic.td.tower.TowerPlacementValidator;
 import hr.brajnovic.td.tower.TowerRegistry;
+import hr.brajnovic.td.tower.TowerTargetingSystem;
 import hr.brajnovic.td.ui.SkinFactory;
 import hr.brajnovic.td.wave.GamePhase;
 import hr.brajnovic.td.wave.WaveController;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class GameScreen implements Screen {
@@ -59,6 +66,10 @@ public class GameScreen implements Screen {
     private static final float ENEMY_FRAME_DURATION_SECONDS = 0.12f;
     private static final float TOWER_IDLE_FRAME_DURATION_SECONDS = 0.5f;
     private static final float PROJECTILE_FRAME_DURATION_SECONDS = 0.08f;
+
+    private static final Family TOWER_FAMILY = Family.all(TowerComponent.class, PositionComponent.class).get();
+    private static final Family ENEMY_FAMILY = Family.all(EnemyComponent.class, PositionComponent.class).get();
+    private static final Family PROJECTILE_FAMILY = Family.all(ProjectileComponent.class, PositionComponent.class).get();
 
     private final BrajnovicTD game;
 
@@ -71,9 +82,8 @@ public class GameScreen implements Screen {
     private final OrthogonalTiledMapRenderer mapRenderer;
 
     private final Economy economy;
+    private final PooledEngine engine;
     private final WaveController waveController;
-    private final List<Tower> towers = new ArrayList<>();
-    private final List<Projectile> projectiles = new ArrayList<>();
 
     private final OrthographicCamera mapCamera;
     private final Viewport mapViewport;
@@ -118,7 +128,11 @@ public class GameScreen implements Screen {
         mapRenderer = new OrthogonalTiledMapRenderer(tiledMap, GameConstants.TILE_SCALE);
 
         economy = new Economy(level.startingGold, level.startingLives);
-        waveController = new WaveController(level, enemyRegistry, gridMap, economy);
+        engine = new PooledEngine();
+        engine.addSystem(new EnemyLifecycleSystem(economy));
+        engine.addSystem(new TowerTargetingSystem());
+        engine.addSystem(new ProjectileSystem());
+        waveController = new WaveController(level, enemyRegistry, gridMap, economy, engine);
 
         mapCamera = new OrthographicCamera();
         mapViewport = new ExtendViewport(
@@ -206,7 +220,19 @@ public class GameScreen implements Screen {
             return;
         }
         gridMap.placeTower(hoverTileX, hoverTileY);
-        towers.add(new Tower(definition, hoverTileX, hoverTileY));
+
+        TowerComponent towerComponent = engine.createComponent(TowerComponent.class);
+        towerComponent.definition = definition;
+        towerComponent.gridX = hoverTileX;
+        towerComponent.gridY = hoverTileY;
+
+        PositionComponent positionComponent = engine.createComponent(PositionComponent.class);
+        positionComponent.value.set(hoverTileX + 0.5f, hoverTileY + 0.5f);
+
+        Entity entity = engine.createEntity();
+        entity.add(towerComponent);
+        entity.add(positionComponent);
+        engine.addEntity(entity);
     }
 
     private void buildHud() {
@@ -360,10 +386,7 @@ public class GameScreen implements Screen {
         if (!gameEnded) {
             float simDelta = waveController.getPhase() == GamePhase.WAVE ? delta * timeScale : delta;
             waveController.update(simDelta);
-            for (Tower tower : towers) {
-                tower.update(simDelta, waveController.getActiveEnemies(), projectiles);
-            }
-            projectiles.removeIf(projectile -> !projectile.update(simDelta));
+            engine.update(simDelta);
 
             if (economy.isGameOver()) {
                 gameEnded = true;
@@ -395,16 +418,20 @@ public class GameScreen implements Screen {
     private void renderEntities() {
         Gdx.gl.glEnable(GL20.GL_BLEND);
 
+        ImmutableArray<Entity> towerEntities = engine.getEntitiesFor(TOWER_FAMILY);
+        ImmutableArray<Entity> enemyEntities = engine.getEntitiesFor(ENEMY_FAMILY);
+        ImmutableArray<Entity> projectileEntities = engine.getEntitiesFor(PROJECTILE_FAMILY);
+
         spriteBatch.setProjectionMatrix(mapCamera.combined);
         spriteBatch.begin();
-        for (Tower tower : towers) {
-            drawTowerSprite(tower);
+        for (Entity entity : towerEntities) {
+            drawTowerSprite(Mappers.TOWER.get(entity), Mappers.POSITION.get(entity));
         }
-        for (Enemy enemy : waveController.getActiveEnemies()) {
-            drawEnemySprite(enemy);
+        for (Entity entity : enemyEntities) {
+            drawEnemySprite(Mappers.ENEMY.get(entity), Mappers.POSITION.get(entity));
         }
-        for (Projectile projectile : projectiles) {
-            drawProjectileSprite(projectile);
+        for (Entity entity : projectileEntities) {
+            drawProjectileSprite(Mappers.PROJECTILE.get(entity), Mappers.POSITION.get(entity));
         }
         if (selectedTowerId != null && gridMap.isInBounds(hoverTileX, hoverTileY)) {
             drawGhostSprite();
@@ -414,8 +441,8 @@ public class GameScreen implements Screen {
         shapeRenderer.setProjectionMatrix(mapCamera.combined);
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        for (Enemy enemy : waveController.getActiveEnemies()) {
-            drawEnemyHpBar(enemy);
+        for (Entity entity : enemyEntities) {
+            drawEnemyHpBar(Mappers.ENEMY.get(entity), Mappers.POSITION.get(entity));
         }
         shapeRenderer.end();
 
@@ -424,66 +451,68 @@ public class GameScreen implements Screen {
         if (selectedTowerId != null && gridMap.isInBounds(hoverTileX, hoverTileY)) {
             drawRangeCircle(hoverTileX + 0.5f, hoverTileY + 0.5f, towerRegistry.get(selectedTowerId).rangeTiles);
         } else {
-            Tower hovered = findTowerAt(hoverTileX, hoverTileY);
+            Entity hovered = findTowerAt(hoverTileX, hoverTileY);
             if (hovered != null) {
-                drawRangeCircle(hovered.getPosition().x, hovered.getPosition().y, hovered.getDefinition().rangeTiles);
+                Vector2 hoveredPosition = Mappers.POSITION.get(hovered).value;
+                drawRangeCircle(hoveredPosition.x, hoveredPosition.y, Mappers.TOWER.get(hovered).definition.rangeTiles);
             }
         }
         shapeRenderer.end();
     }
 
-    private void drawTowerSprite(Tower tower) {
-        SpriteSheet sheet = towerSpriteSheetsById.get(tower.getDefinition().spriteSheetId);
+    private void drawTowerSprite(TowerComponent tower, PositionComponent position) {
+        SpriteSheet sheet = towerSpriteSheetsById.get(tower.definition.spriteSheetId);
         if (sheet == null) {
             return;
         }
-        float px = tower.getPosition().x * SCALE;
-        float py = tower.getPosition().y * SCALE;
+        float px = position.value.x * SCALE;
+        float py = position.value.y * SCALE;
 
         TextureRegion base = sheet.getAnimation("base")[0];
         spriteBatch.draw(base, px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
 
         TextureRegion[] turretFrames;
         int turretFrameIndex;
-        float rotation = tower.getTurretAngleDeg() - 90f + tower.getDefinition().spriteRotationOffsetDeg;
-        if (tower.isFiring()) {
+        float rotation = tower.turretAngleDeg - 90f + tower.definition.spriteRotationOffsetDeg;
+        boolean isFiring = tower.timeSinceLastShot < tower.definition.shootAnimationDurationSeconds;
+        if (isFiring) {
             turretFrames = sheet.getAnimation("turret_shoot");
             float shootProgress = MathUtils.clamp(
-                tower.getTimeSinceLastShot() / tower.getDefinition().shootAnimationDurationSeconds, 0f, 1f);
+                tower.timeSinceLastShot / tower.definition.shootAnimationDurationSeconds, 0f, 1f);
             turretFrameIndex = MathUtils.clamp((int) (shootProgress * turretFrames.length), 0, turretFrames.length - 1);
         } else {
             turretFrames = sheet.getAnimation("turret_idle");
             // Only cycle the idle sway animation during true idle spin; while actively tracking a
             // target between shots, hold a static pose so tracking rotation reads as one continuous motion.
-            turretFrameIndex = tower.hasTarget()
+            turretFrameIndex = tower.target != null
                 ? 0
-                : (int) (tower.getTimeSinceLastShot() / TOWER_IDLE_FRAME_DURATION_SECONDS) % turretFrames.length;
+                : (int) (tower.timeSinceLastShot / TOWER_IDLE_FRAME_DURATION_SECONDS) % turretFrames.length;
         }
         float originX = sheet.getPivotX() * GameConstants.TILE_SCALE;
         float originY = sheet.getPivotY() * GameConstants.TILE_SCALE;
-        float turretPy = py + tower.getDefinition().turretVerticalOffsetTiles * SCALE;
+        float turretPy = py + tower.definition.turretVerticalOffsetTiles * SCALE;
         spriteBatch.draw(turretFrames[turretFrameIndex], px - originX, turretPy - originY, originX, originY, SCALE, SCALE, 1f, 1f, rotation);
     }
 
-    private void drawEnemySprite(Enemy enemy) {
-        SpriteSheet sheet = enemySpriteSheetsById.get(enemy.getDefinition().spriteSheetId);
+    private void drawEnemySprite(EnemyComponent enemy, PositionComponent position) {
+        SpriteSheet sheet = enemySpriteSheetsById.get(enemy.definition.spriteSheetId);
         if (sheet == null) {
             return;
         }
-        TextureRegion[] frames = sheet.getAnimation("walk_" + enemy.getFacingDirection());
-        int frameIndex = (int) (enemy.getAnimationTime() / ENEMY_FRAME_DURATION_SECONDS) % frames.length;
+        TextureRegion[] frames = sheet.getAnimation("walk_" + enemy.facingDirection);
+        int frameIndex = (int) (enemy.animationTime / ENEMY_FRAME_DURATION_SECONDS) % frames.length;
         TextureRegion frame = frames[frameIndex];
 
-        float px = enemy.getPosition().x * SCALE;
-        float py = enemy.getPosition().y * SCALE;
+        float px = position.value.x * SCALE;
+        float py = position.value.y * SCALE;
         spriteBatch.draw(frame, px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
     }
 
-    private void drawEnemyHpBar(Enemy enemy) {
-        float px = enemy.getPosition().x * SCALE;
-        float py = enemy.getPosition().y * SCALE;
+    private void drawEnemyHpBar(EnemyComponent enemy, PositionComponent position) {
+        float px = position.value.x * SCALE;
+        float py = position.value.y * SCALE;
 
-        float hpRatio = Math.max(0f, enemy.getHp() / enemy.getMaxHp());
+        float hpRatio = Math.max(0f, enemy.hp / enemy.maxHp);
         float barWidth = SCALE * 0.6f;
         float barY = py + SCALE * 0.4f;
         shapeRenderer.setColor(Color.BLACK);
@@ -492,25 +521,27 @@ public class GameScreen implements Screen {
         shapeRenderer.rect(px - barWidth / 2f, barY, barWidth * hpRatio, 4f);
     }
 
-    private void drawProjectileSprite(Projectile projectile) {
-        SpriteSheet sheet = towerSpriteSheetsById.get(projectile.getSpriteSheetId());
+    private void drawProjectileSprite(ProjectileComponent projectile, PositionComponent position) {
+        SpriteSheet sheet = towerSpriteSheetsById.get(projectile.spriteSheetId);
         if (sheet == null) {
             return;
         }
-        Vector2 position = projectile.getCurrentPosition(new Vector2());
-        float px = position.x * SCALE;
-        float py = position.y * SCALE;
+        float px = position.value.x * SCALE;
+        float py = position.value.y * SCALE;
 
-        if (projectile.isImpacting()) {
+        boolean isImpacting = projectile.impactTimer >= 0f;
+        if (isImpacting) {
             TextureRegion[] frames = sheet.getAnimation("projectile_impact");
-            int frameIndex = MathUtils.clamp((int) (projectile.getImpactProgress() * frames.length), 0, frames.length - 1);
+            float impactProgress = MathUtils.clamp(projectile.impactTimer / projectile.impactAnimationDuration, 0f, 1f);
+            int frameIndex = MathUtils.clamp((int) (impactProgress * frames.length), 0, frames.length - 1);
             spriteBatch.draw(frames[frameIndex], px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
         } else {
             TextureRegion[] frames = sheet.getAnimation("projectile_fly");
-            int frameIndex = (int) (projectile.getFlightElapsedSeconds() / PROJECTILE_FRAME_DURATION_SECONDS) % frames.length;
+            float flightElapsedSeconds = projectile.totalTime - Math.max(0f, projectile.timeToImpact);
+            int frameIndex = (int) (flightElapsedSeconds / PROJECTILE_FRAME_DURATION_SECONDS) % frames.length;
             float originX = SCALE / 2f;
             float originY = SCALE / 2f;
-            spriteBatch.draw(frames[frameIndex], px - originX, py - originY, originX, originY, SCALE, SCALE, 1f, 1f, projectile.getTravelAngleDeg());
+            spriteBatch.draw(frames[frameIndex], px - originX, py - originY, originX, originY, SCALE, SCALE, 1f, 1f, projectile.travelAngleDeg);
         }
     }
 
@@ -542,10 +573,11 @@ public class GameScreen implements Screen {
         shapeRenderer.circle(centerTileX * SCALE, centerTileY * SCALE, radiusTiles * SCALE, 64);
     }
 
-    private Tower findTowerAt(int gridX, int gridY) {
-        for (Tower tower : towers) {
-            if (tower.getGridX() == gridX && tower.getGridY() == gridY) {
-                return tower;
+    private Entity findTowerAt(int gridX, int gridY) {
+        for (Entity entity : engine.getEntitiesFor(TOWER_FAMILY)) {
+            TowerComponent tower = Mappers.TOWER.get(entity);
+            if (tower.gridX == gridX && tower.gridY == gridY) {
+                return entity;
             }
         }
         return null;
