@@ -33,10 +33,22 @@ public class MenuScreen implements Screen {
         Label title = new Label(Localization.get("app.title"), skin, "window");
         root.add(title).padBottom(40).row();
 
+        if (game.hasPausedGame()) {
+            TextButton resumeButton = new TextButton(Localization.get("menu.resume"), skin);
+            resumeButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    game.setScreen(game.resumePausedGame());
+                }
+            });
+            root.add(resumeButton).width(200).padBottom(20).row();
+        }
+
         TextButton playButton = new TextButton(Localization.get("menu.play"), skin);
         playButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
+                game.discardPausedGame();
                 game.setScreen(new GameScreen(game));
             }
         });
