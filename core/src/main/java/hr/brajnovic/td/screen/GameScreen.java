@@ -23,12 +23,15 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Stack;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
@@ -114,6 +117,8 @@ public class GameScreen implements Screen {
     private boolean gameEnded = false;
 
     private Window towerInfoWindow;
+    private Image towerInfoIconBase;
+    private Image towerInfoIconTurret;
     private Label towerInfoLevelLabel;
     private Label towerInfoDamageLabel;
     private Label towerInfoRangeLabel;
@@ -309,7 +314,10 @@ public class GameScreen implements Screen {
                 }
             }
         });
-        root.add(arrowTowerButton).padTop(24).width(200).left().row();
+        Table arrowTowerRow = new Table();
+        arrowTowerRow.add(buildTowerIconStack(arrowTower)).size(28f).padRight(6f);
+        arrowTowerRow.add(arrowTowerButton).width(200);
+        root.add(arrowTowerRow).padTop(24).left().row();
 
         root.add().expandY().row();
 
@@ -376,9 +384,31 @@ public class GameScreen implements Screen {
         overlayStage.addActor(overlayWindow);
     }
 
+    private Stack buildTowerIconStack(TowerDefinition definition) {
+        Image base = new Image();
+        Image turret = new Image();
+        SpriteSheet sheet = towerSpriteSheetsById.get(definition.spriteSheetId);
+        if (sheet != null) {
+            base.setDrawable(new TextureRegionDrawable(sheet.getAnimation("base")[0]));
+            turret.setDrawable(new TextureRegionDrawable(sheet.getAnimation("turret_idle")[0]));
+        }
+        return new Stack(base, turret);
+    }
+
     private void buildTowerInfoWindow() {
         towerInfoWindow = new Window("", skin);
         towerInfoWindow.setMovable(false);
+        // Window sizes its title bar (and thus the background behind it) to getPadTop(), which by
+        // default is only tall enough for the title font - widen it so the 28px icon fits inside.
+        towerInfoWindow.padTop(40f);
+
+        towerInfoIconBase = new Image();
+        towerInfoIconTurret = new Image();
+        Stack towerIconStack = new Stack(towerInfoIconBase, towerInfoIconTurret);
+        Table titleTable = towerInfoWindow.getTitleTable();
+        titleTable.clearChildren();
+        titleTable.add(towerIconStack).size(28f).padRight(6f);
+        titleTable.add(towerInfoWindow.getTitleLabel()).growX().minWidth(0);
 
         towerInfoLevelLabel = new Label("", skin);
         towerInfoDamageLabel = new Label("", skin);
@@ -482,6 +512,12 @@ public class GameScreen implements Screen {
 
         TowerComponent tower = Mappers.TOWER.get(selectedTowerEntity);
         TowerDefinition definition = tower.definition;
+
+        SpriteSheet iconSheet = towerSpriteSheetsById.get(definition.spriteSheetId);
+        if (iconSheet != null) {
+            towerInfoIconBase.setDrawable(new TextureRegionDrawable(iconSheet.getAnimation("base")[0]));
+            towerInfoIconTurret.setDrawable(new TextureRegionDrawable(iconSheet.getAnimation("turret_idle")[0]));
+        }
 
         towerInfoWindow.getTitleLabel().setText(Localization.get(definition.name));
         towerInfoLevelLabel.setText(Localization.format("tower.info.level", tower.level, TowerUpgrade.MAX_LEVEL));
