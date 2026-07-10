@@ -16,6 +16,9 @@ public class TowerComponent implements Component, Poolable {
     /** EnemyComponent.spawnId captured when {@code target} was acquired; guards against PooledEngine
      * reusing the same Entity/Component objects for an unrelated later enemy before this tower re-targets. */
     public int targetSpawnId;
+    public int level = 1;
+    /** Cost + all upgrade costs paid so far; sell refund is a ratio of this. */
+    public int totalInvested;
 
     @Override
     public void reset() {
@@ -27,5 +30,7 @@ public class TowerComponent implements Component, Poolable {
         timeSinceLastShot = Float.MAX_VALUE;
         target = null;
         targetSpawnId = 0;
+        level = 1;
+        totalInvested = 0;
     }
 }

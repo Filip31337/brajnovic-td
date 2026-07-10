@@ -53,6 +53,7 @@ import hr.brajnovic.td.tower.TowerDefinition;
 import hr.brajnovic.td.tower.TowerPlacementValidator;
 import hr.brajnovic.td.tower.TowerRegistry;
 import hr.brajnovic.td.tower.TowerTargetingSystem;
+import hr.brajnovic.td.tower.TowerUpgrade;
 import hr.brajnovic.td.ui.SkinFactory;
 import hr.brajnovic.td.wave.GamePhase;
 import hr.brajnovic.td.wave.WaveController;
@@ -112,7 +113,17 @@ public class GameScreen implements Screen {
     private Label overlayMessageLabel;
     private boolean gameEnded = false;
 
+    private Window towerInfoWindow;
+    private Label towerInfoLevelLabel;
+    private Label towerInfoDamageLabel;
+    private Label towerInfoRangeLabel;
+    private Label towerInfoFireRateLabel;
+    private Label towerInfoNextLevelLabel;
+    private TextButton towerUpgradeButton;
+    private TextButton towerSellButton;
+
     private String selectedTowerId = null;
+    private Entity selectedTowerEntity = null;
     private int hoverTileX = Integer.MIN_VALUE;
     private int hoverTileY = Integer.MIN_VALUE;
 
@@ -160,6 +171,7 @@ public class GameScreen implements Screen {
         overlayStage = new Stage(new ScreenViewport());
         buildHud();
         buildOverlay();
+        buildTowerInfoWindow();
 
         inputMultiplexer = new InputMultiplexer(overlayStage, hudStage, mapInputProcessor);
 
@@ -171,12 +183,18 @@ public class GameScreen implements Screen {
         public boolean touchDown(int screenX, int screenY, int pointer, int button) {
             if (button == Input.Buttons.RIGHT) {
                 cancelPlacement();
+                cancelSelection();
                 return true;
             }
-            if (button == Input.Buttons.LEFT && selectedTowerId != null) {
+            if (button == Input.Buttons.LEFT) {
                 updateHoverTile(screenX, screenY);
-                tryPlaceSelectedTower();
-                return true;
+                if (selectedTowerId != null) {
+                    tryPlaceSelectedTower();
+                    return true;
+                }
+                if (waveController.getPhase() == GamePhase.BUILD) {
+                    return trySelectTowerAt(hoverTileX, hoverTileY);
+                }
             }
             return false;
         }
@@ -191,6 +209,7 @@ public class GameScreen implements Screen {
         public boolean keyDown(int keycode) {
             if (keycode == Input.Keys.ESCAPE) {
                 cancelPlacement();
+                cancelSelection();
                 return true;
             }
             return false;
@@ -206,6 +225,23 @@ public class GameScreen implements Screen {
 
     private void cancelPlacement() {
         selectedTowerId = null;
+    }
+
+    private void cancelSelection() {
+        selectedTowerEntity = null;
+    }
+
+    private boolean trySelectTowerAt(int gridX, int gridY) {
+        Entity tower = findTowerAt(gridX, gridY);
+        if (tower == null) {
+            if (selectedTowerEntity == null) {
+                return false;
+            }
+            cancelSelection();
+            return true;
+        }
+        selectedTowerEntity = tower == selectedTowerEntity ? null : tower;
+        return true;
     }
 
     private void tryPlaceSelectedTower() {
@@ -225,6 +261,7 @@ public class GameScreen implements Screen {
         towerComponent.definition = definition;
         towerComponent.gridX = hoverTileX;
         towerComponent.gridY = hoverTileY;
+        towerComponent.totalInvested = definition.cost;
 
         PositionComponent positionComponent = engine.createComponent(PositionComponent.class);
         positionComponent.value.set(hoverTileX + 0.5f, hoverTileY + 0.5f);
@@ -339,6 +376,65 @@ public class GameScreen implements Screen {
         overlayStage.addActor(overlayWindow);
     }
 
+    private void buildTowerInfoWindow() {
+        towerInfoWindow = new Window("", skin);
+        towerInfoWindow.setMovable(false);
+
+        towerInfoLevelLabel = new Label("", skin);
+        towerInfoDamageLabel = new Label("", skin);
+        towerInfoRangeLabel = new Label("", skin);
+        towerInfoFireRateLabel = new Label("", skin);
+        towerInfoNextLevelLabel = new Label("", skin);
+        towerInfoWindow.add(towerInfoLevelLabel).left().pad(4).row();
+        towerInfoWindow.add(towerInfoDamageLabel).left().pad(4).row();
+        towerInfoWindow.add(towerInfoRangeLabel).left().pad(4).row();
+        towerInfoWindow.add(towerInfoFireRateLabel).left().pad(4).row();
+        towerInfoWindow.add(towerInfoNextLevelLabel).left().pad(4).row();
+
+        towerUpgradeButton = new TextButton("", skin);
+        towerUpgradeButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                upgradeSelectedTower();
+            }
+        });
+        towerInfoWindow.add(towerUpgradeButton).width(180).pad(4).row();
+
+        towerSellButton = new TextButton("", skin);
+        towerSellButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                sellSelectedTower();
+            }
+        });
+        towerInfoWindow.add(towerSellButton).width(180).pad(4);
+
+        towerInfoWindow.pack();
+        towerInfoWindow.setVisible(false);
+        towerInfoWindow.setTouchable(Touchable.disabled);
+        overlayStage.addActor(towerInfoWindow);
+    }
+
+    private void upgradeSelectedTower() {
+        TowerComponent tower = Mappers.TOWER.get(selectedTowerEntity);
+        if (!TowerUpgrade.canUpgrade(tower.level)) {
+            return;
+        }
+        int cost = TowerUpgrade.upgradeCost(tower.definition);
+        if (economy.trySpend(cost)) {
+            tower.level++;
+            tower.totalInvested += cost;
+        }
+    }
+
+    private void sellSelectedTower() {
+        TowerComponent tower = Mappers.TOWER.get(selectedTowerEntity);
+        economy.addGold(TowerUpgrade.sellRefund(tower.totalInvested));
+        gridMap.removeTower(tower.gridX, tower.gridY);
+        engine.removeEntity(selectedTowerEntity);
+        cancelSelection();
+    }
+
     private void showOverlay(String title, String message) {
         overlayWindow.getTitleLabel().setText(title);
         overlayMessageLabel.setText(message);
@@ -361,6 +457,7 @@ public class GameScreen implements Screen {
         arrowTowerButton.setDisabled(!buildPhase);
         if (!buildPhase) {
             selectedTowerId = null;
+            selectedTowerEntity = null;
         } else {
             timeScale = 1f;
         }
@@ -374,6 +471,74 @@ public class GameScreen implements Screen {
                 ? Localization.format("hud.nextWaveIn", waveController.getBuildPhaseSecondsRemaining())
                 : ""
         );
+    }
+
+    private void updateTowerInfoWindow() {
+        if (selectedTowerEntity == null) {
+            towerInfoWindow.setVisible(false);
+            towerInfoWindow.setTouchable(Touchable.disabled);
+            return;
+        }
+
+        TowerComponent tower = Mappers.TOWER.get(selectedTowerEntity);
+        TowerDefinition definition = tower.definition;
+
+        towerInfoWindow.getTitleLabel().setText(Localization.get(definition.name));
+        towerInfoLevelLabel.setText(Localization.format("tower.info.level", tower.level, TowerUpgrade.MAX_LEVEL));
+        towerInfoDamageLabel.setText(Localization.format("tower.info.damage",
+            (int) TowerUpgrade.damageForLevel(definition, tower.level)));
+        towerInfoRangeLabel.setText(Localization.format("tower.info.range",
+            TowerUpgrade.rangeForLevel(definition, tower.level)));
+        towerInfoFireRateLabel.setText(Localization.format("tower.info.fireRate",
+            TowerUpgrade.fireRateForLevel(definition, tower.level)));
+
+        if (TowerUpgrade.canUpgrade(tower.level)) {
+            int upgradeCost = TowerUpgrade.upgradeCost(definition);
+            towerUpgradeButton.setText(Localization.format("tower.info.upgrade", upgradeCost));
+            towerUpgradeButton.setDisabled(economy.getGold() < upgradeCost);
+            towerInfoNextLevelLabel.setText(Localization.get(nextLevelPreviewKey(tower.level + 1)));
+        } else {
+            towerUpgradeButton.setText(Localization.get("tower.info.upgrade.maxed"));
+            towerUpgradeButton.setDisabled(true);
+            towerInfoNextLevelLabel.setText("");
+        }
+        towerSellButton.setText(Localization.format("tower.info.sell", TowerUpgrade.sellRefund(tower.totalInvested)));
+
+        towerInfoWindow.pack();
+        positionTowerInfoWindow();
+        towerInfoWindow.setVisible(true);
+        towerInfoWindow.setTouchable(Touchable.enabled);
+    }
+
+    private String nextLevelPreviewKey(int nextLevel) {
+        TowerUpgrade.MilestoneStat milestone = TowerUpgrade.milestoneAtLevel(nextLevel);
+        if (milestone == null) {
+            return "tower.info.nextLevel.normal";
+        }
+        return switch (milestone) {
+            case DAMAGE -> "tower.info.nextLevel.damage";
+            case RANGE -> "tower.info.nextLevel.range";
+            case FIRE_RATE -> "tower.info.nextLevel.fireRate";
+        };
+    }
+
+    private void positionTowerInfoWindow() {
+        Vector2 worldPoint = Mappers.POSITION.get(selectedTowerEntity).value.cpy();
+        // PositionComponent is in tile units, but mapCamera/mapViewport operate in pixels (see
+        // renderEntities' px = position.value.x * SCALE) - convert before projecting.
+        worldPoint.scl(SCALE);
+        worldPoint.x += SCALE * 0.7f;
+        Vector2 screenPoint = mapViewport.project(worldPoint);
+        // Viewport#project returns GL-style coords (origin bottom-left, y-up); screenToStageCoordinates
+        // expects touch/screen coords (origin top-left, y-down), so flip y before converting.
+        screenPoint.y = Gdx.graphics.getHeight() - screenPoint.y;
+        Vector2 stagePoint = overlayStage.screenToStageCoordinates(screenPoint);
+
+        float x = MathUtils.clamp(stagePoint.x,
+            0f, overlayStage.getWidth() - towerInfoWindow.getWidth());
+        float y = MathUtils.clamp(stagePoint.y - towerInfoWindow.getHeight() / 2f,
+            0f, overlayStage.getHeight() - towerInfoWindow.getHeight());
+        towerInfoWindow.setPosition(x, y);
     }
 
     @Override
@@ -410,6 +575,7 @@ public class GameScreen implements Screen {
         hudStage.getViewport().apply();
         hudStage.draw();
 
+        updateTowerInfoWindow();
         overlayStage.act(delta);
         overlayStage.getViewport().apply();
         overlayStage.draw();
@@ -450,11 +616,18 @@ public class GameScreen implements Screen {
         shapeRenderer.setColor(Color.WHITE);
         if (selectedTowerId != null && gridMap.isInBounds(hoverTileX, hoverTileY)) {
             drawRangeCircle(hoverTileX + 0.5f, hoverTileY + 0.5f, towerRegistry.get(selectedTowerId).rangeTiles);
+        } else if (selectedTowerEntity != null) {
+            Vector2 selectedPosition = Mappers.POSITION.get(selectedTowerEntity).value;
+            TowerComponent selectedTower = Mappers.TOWER.get(selectedTowerEntity);
+            drawRangeCircle(selectedPosition.x, selectedPosition.y,
+                TowerUpgrade.rangeForLevel(selectedTower.definition, selectedTower.level));
         } else {
             Entity hovered = findTowerAt(hoverTileX, hoverTileY);
             if (hovered != null) {
                 Vector2 hoveredPosition = Mappers.POSITION.get(hovered).value;
-                drawRangeCircle(hoveredPosition.x, hoveredPosition.y, Mappers.TOWER.get(hovered).definition.rangeTiles);
+                TowerComponent hoveredTower = Mappers.TOWER.get(hovered);
+                drawRangeCircle(hoveredPosition.x, hoveredPosition.y,
+                    TowerUpgrade.rangeForLevel(hoveredTower.definition, hoveredTower.level));
             }
         }
         shapeRenderer.end();

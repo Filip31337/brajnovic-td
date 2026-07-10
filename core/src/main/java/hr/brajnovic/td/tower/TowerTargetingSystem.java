@@ -43,7 +43,8 @@ public class TowerTargetingSystem extends IteratingSystem {
     }
 
     private void retarget(TowerComponent tower, Vector2 position) {
-        if (tower.target != null && !isValidTarget(tower.target, tower.targetSpawnId, position, tower.definition.rangeTiles)) {
+        float rangeTiles = TowerUpgrade.rangeForLevel(tower.definition, tower.level);
+        if (tower.target != null && !isValidTarget(tower.target, tower.targetSpawnId, position, rangeTiles)) {
             tower.target = null;
         }
         if (tower.target == null) {
@@ -56,7 +57,7 @@ public class TowerTargetingSystem extends IteratingSystem {
                     continue;
                 }
                 Vector2 candidatePosition = Mappers.POSITION.get(candidate).value;
-                if (position.dst(candidatePosition) > tower.definition.rangeTiles) {
+                if (position.dst(candidatePosition) > rangeTiles) {
                     continue;
                 }
                 if (candidateEnemy.distanceTraveled > bestProgress) {
@@ -83,7 +84,7 @@ public class TowerTargetingSystem extends IteratingSystem {
         EnemyComponent targetEnemy = Mappers.ENEMY.get(tower.target);
         Vector2 targetPosition = Mappers.POSITION.get(tower.target).value;
 
-        tower.fireCooldown = 1f / tower.definition.fireRatePerSecond;
+        tower.fireCooldown = 1f / TowerUpgrade.fireRateForLevel(tower.definition, tower.level);
         tower.timeSinceLastShot = 0f;
 
         Vector2 targetVelocity = enemyVelocity(targetEnemy, targetPosition);
@@ -92,7 +93,8 @@ public class TowerTargetingSystem extends IteratingSystem {
         PositionComponent projectilePosition = getEngine().createComponent(PositionComponent.class);
         projectilePosition.value.set(position);
         ProjectileComponent projectile = getEngine().createComponent(ProjectileComponent.class);
-        projectile.init(position, predictedImpact, tower.target, tower.targetSpawnId, tower.definition.damage,
+        float damage = TowerUpgrade.damageForLevel(tower.definition, tower.level);
+        projectile.init(position, predictedImpact, tower.target, tower.targetSpawnId, damage,
             tower.definition.projectileSpeedTilesPerSec, tower.definition.projectileImpactDurationSeconds,
             tower.definition.projectileSpriteRotationOffsetDeg, tower.definition.spriteSheetId);
 
