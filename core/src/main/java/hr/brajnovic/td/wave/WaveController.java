@@ -3,6 +3,7 @@ package hr.brajnovic.td.wave;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.core.PooledEngine;
+import com.badlogic.gdx.ai.fsm.DefaultStateMachine;
 import com.badlogic.gdx.math.GridPoint2;
 import com.badlogic.gdx.math.MathUtils;
 import hr.brajnovic.td.ecs.PositionComponent;
@@ -10,6 +11,7 @@ import hr.brajnovic.td.economy.Economy;
 import hr.brajnovic.td.enemy.EnemyComponent;
 import hr.brajnovic.td.enemy.EnemyDefinition;
 import hr.brajnovic.td.enemy.EnemyRegistry;
+import hr.brajnovic.td.enemy.EnemyState;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
 import hr.brajnovic.td.pathfinding.AStarPathfinder;
@@ -160,6 +162,7 @@ public class WaveController {
         positionComponent.value.set(start.x + 0.5f, start.y + 0.5f);
 
         Entity entity = engine.createEntity();
+        enemyComponent.stateMachine = new DefaultStateMachine<>(entity, EnemyState.WALKING);
         entity.add(enemyComponent);
         entity.add(positionComponent);
         engine.addEntity(entity);

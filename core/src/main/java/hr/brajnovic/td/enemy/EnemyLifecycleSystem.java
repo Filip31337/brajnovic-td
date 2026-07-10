@@ -27,9 +27,16 @@ public class EnemyLifecycleSystem extends IteratingSystem {
         EnemyComponent enemy = Mappers.ENEMY.get(entity);
         PositionComponent position = Mappers.POSITION.get(entity);
 
+        if (enemy.stateMachine.getCurrentState() == EnemyState.DYING) {
+            enemy.deathTimer += deltaTime;
+            if (enemy.deathTimer >= enemy.definition.deathAnimationDurationSeconds) {
+                getEngine().removeEntity(entity);
+            }
+            return;
+        }
         if (enemy.hp <= 0f) {
             economy.addGold(enemy.definition.goldReward);
-            getEngine().removeEntity(entity);
+            enemy.stateMachine.changeState(EnemyState.DYING);
             return;
         }
         if (enemy.reachedGoal) {

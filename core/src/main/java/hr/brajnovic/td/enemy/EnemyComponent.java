@@ -1,6 +1,8 @@
 package hr.brajnovic.td.enemy;
 
 import com.badlogic.ashley.core.Component;
+import com.badlogic.ashley.core.Entity;
+import com.badlogic.gdx.ai.fsm.StateMachine;
 import com.badlogic.gdx.math.GridPoint2;
 import com.badlogic.gdx.utils.Pool.Poolable;
 
@@ -19,6 +21,8 @@ public class EnemyComponent implements Component, Poolable {
     public boolean reachedGoal = false;
     public String facingDirection = "S";
     public float animationTime = 0f;
+    public StateMachine<Entity, EnemyState> stateMachine;
+    public float deathTimer = 0f;
 
     @Override
     public void reset() {
@@ -32,5 +36,7 @@ public class EnemyComponent implements Component, Poolable {
         reachedGoal = false;
         facingDirection = "S";
         animationTime = 0f;
+        stateMachine = null;
+        deathTimer = 0f;
     }
 }

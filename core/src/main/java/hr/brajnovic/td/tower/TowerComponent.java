@@ -2,6 +2,7 @@ package hr.brajnovic.td.tower;
 
 import com.badlogic.ashley.core.Component;
 import com.badlogic.ashley.core.Entity;
+import com.badlogic.gdx.ai.fsm.StateMachine;
 import com.badlogic.gdx.utils.Pool.Poolable;
 
 public class TowerComponent implements Component, Poolable {
@@ -19,6 +20,7 @@ public class TowerComponent implements Component, Poolable {
     public int level = 1;
     /** Cost + all upgrade costs paid so far; sell refund is a ratio of this. */
     public int totalInvested;
+    public StateMachine<Entity, TowerState> stateMachine;
 
     @Override
     public void reset() {
@@ -32,5 +34,6 @@ public class TowerComponent implements Component, Poolable {
         targetSpawnId = 0;
         level = 1;
         totalInvested = 0;
+        stateMachine = null;
     }
 }

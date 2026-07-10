@@ -6,6 +6,7 @@
     "speedTilesPerSec": 1.00,
     "goldReward": 5,
     "livesDamage": 1,
+    "deathAnimationDurationSeconds": 0.48,
     "spriteSheetId": "orc_atlas",
     "resistances": {}
   }

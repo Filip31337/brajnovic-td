@@ -40,6 +40,19 @@ public class TowerTargetingSystem extends IteratingSystem {
             float idleAngularSpeed = 360f / tower.definition.turretIdleRevolutionSeconds;
             tower.turretAngleDeg = (tower.turretAngleDeg + idleAngularSpeed * deltaTime) % 360f;
         }
+
+        syncState(tower);
+    }
+
+    /** timeSinceLastShot/target remain the source of truth; the FSM is just a named reflection of them
+     * (ready for V2 enter/exit hooks like a muzzle-flash particle on entering FIRING). */
+    private void syncState(TowerComponent tower) {
+        TowerState desiredState = tower.timeSinceLastShot < tower.definition.shootAnimationDurationSeconds
+            ? TowerState.FIRING
+            : (tower.target != null ? TowerState.TRACKING : TowerState.IDLE);
+        if (tower.stateMachine.getCurrentState() != desiredState) {
+            tower.stateMachine.changeState(desiredState);
+        }
     }
 
     private void retarget(TowerComponent tower, Vector2 position) {

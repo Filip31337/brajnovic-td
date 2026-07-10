@@ -5,6 +5,7 @@ import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.core.PooledEngine;
 import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.ai.fsm.DefaultStateMachine;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.InputMultiplexer;
@@ -44,6 +45,7 @@ import hr.brajnovic.td.economy.Economy;
 import hr.brajnovic.td.enemy.EnemyComponent;
 import hr.brajnovic.td.enemy.EnemyLifecycleSystem;
 import hr.brajnovic.td.enemy.EnemyRegistry;
+import hr.brajnovic.td.enemy.EnemyState;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
@@ -55,6 +57,7 @@ import hr.brajnovic.td.tower.TowerComponent;
 import hr.brajnovic.td.tower.TowerDefinition;
 import hr.brajnovic.td.tower.TowerPlacementValidator;
 import hr.brajnovic.td.tower.TowerRegistry;
+import hr.brajnovic.td.tower.TowerState;
 import hr.brajnovic.td.tower.TowerTargetingSystem;
 import hr.brajnovic.td.tower.TowerUpgrade;
 import hr.brajnovic.td.ui.SkinFactory;
@@ -272,6 +275,7 @@ public class GameScreen implements Screen {
         positionComponent.value.set(hoverTileX + 0.5f, hoverTileY + 0.5f);
 
         Entity entity = engine.createEntity();
+        towerComponent.stateMachine = new DefaultStateMachine<>(entity, TowerState.IDLE);
         entity.add(towerComponent);
         entity.add(positionComponent);
         engine.addEntity(entity);
@@ -683,8 +687,8 @@ public class GameScreen implements Screen {
         TextureRegion[] turretFrames;
         int turretFrameIndex;
         float rotation = tower.turretAngleDeg - 90f + tower.definition.spriteRotationOffsetDeg;
-        boolean isFiring = tower.timeSinceLastShot < tower.definition.shootAnimationDurationSeconds;
-        if (isFiring) {
+        TowerState state = tower.stateMachine.getCurrentState();
+        if (state == TowerState.FIRING) {
             turretFrames = sheet.getAnimation("turret_shoot");
             float shootProgress = MathUtils.clamp(
                 tower.timeSinceLastShot / tower.definition.shootAnimationDurationSeconds, 0f, 1f);
@@ -693,7 +697,7 @@ public class GameScreen implements Screen {
             turretFrames = sheet.getAnimation("turret_idle");
             // Only cycle the idle sway animation during true idle spin; while actively tracking a
             // target between shots, hold a static pose so tracking rotation reads as one continuous motion.
-            turretFrameIndex = tower.target != null
+            turretFrameIndex = state == TowerState.TRACKING
                 ? 0
                 : (int) (tower.timeSinceLastShot / TOWER_IDLE_FRAME_DURATION_SECONDS) % turretFrames.length;
         }
@@ -708,8 +712,11 @@ public class GameScreen implements Screen {
         if (sheet == null) {
             return;
         }
-        TextureRegion[] frames = sheet.getAnimation("walk_" + enemy.facingDirection);
-        int frameIndex = (int) (enemy.animationTime / ENEMY_FRAME_DURATION_SECONDS) % frames.length;
+        boolean dying = enemy.stateMachine.getCurrentState() == EnemyState.DYING;
+        TextureRegion[] frames = dying ? sheet.getAnimation("death") : sheet.getAnimation("walk_" + enemy.facingDirection);
+        int frameIndex = dying
+            ? MathUtils.clamp((int) (enemy.deathTimer / ENEMY_FRAME_DURATION_SECONDS), 0, frames.length - 1)
+            : (int) (enemy.animationTime / ENEMY_FRAME_DURATION_SECONDS) % frames.length;
         TextureRegion frame = frames[frameIndex];
 
         float px = position.value.x * SCALE;
@@ -718,6 +725,9 @@ public class GameScreen implements Screen {
     }
 
     private void drawEnemyHpBar(EnemyComponent enemy, PositionComponent position) {
+        if (enemy.stateMachine.getCurrentState() == EnemyState.DYING) {
+            return;
+        }
         float px = position.value.x * SCALE;
         float py = position.value.y * SCALE;
 

@@ -11,6 +11,7 @@ public class EnemyDefinition {
     public float speedTilesPerSec;
     public int goldReward;
     public int livesDamage;
+    public float deathAnimationDurationSeconds = 0.5f;
 
     /** Base name of the sprites-src sheet (PNG + JSON) under assets/sprites-src/, e.g. "orc_atlas". */
     public String spriteSheetId;
