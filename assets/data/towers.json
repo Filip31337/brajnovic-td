@@ -62,5 +62,28 @@
     "projectileSpriteRotationOffsetDeg": 0,
     "shootAnimationDurationSeconds": 0.35,
     "projectileImpactDurationSeconds": 0.35
+  },
+  {
+    "id": "poison_tower",
+    "name": "tower.poison_tower.name",
+    "cost": 60,
+    "rangeTiles": 3,
+    "damage": 2,
+    "aoeRadiusTiles": 1.5,
+    "poisonDamagePerSecond": 2,
+    "poisonDurationSeconds": 3.0,
+    "fireRatePerSecond": 0.6,
+    "projectileSpeedTilesPerSec": 4.5,
+    "turretIdleRevolutionSeconds": 4,
+    "turretTrackingDegPerSec": 120,
+    "fireAngleThresholdDeg": 8,
+    "damageType": "poison",
+    "shootSoundId": "poison_tower_shoot",
+    "spriteSheetId": "poison_tower_atlas",
+    "spriteRotationOffsetDeg": 90,
+    "turretVerticalOffsetTiles": 0.15,
+    "projectileSpriteRotationOffsetDeg": 0,
+    "shootAnimationDurationSeconds": 0.35,
+    "projectileImpactDurationSeconds": 0.35
   }
 ]

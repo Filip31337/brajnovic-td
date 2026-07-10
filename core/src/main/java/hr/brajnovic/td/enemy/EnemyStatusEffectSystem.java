@@ -30,11 +30,17 @@ public class EnemyStatusEffectSystem extends IteratingSystem {
         }
 
         float speedMultiplier = 1f;
+        float poisonDamagePerSecond = 0f;
         for (ActiveEffect effect : enemy.activeEffects) {
-            if (effect.type == EffectType.SLOW) {
-                speedMultiplier *= effect.magnitude;
+            switch (effect.type) {
+                case SLOW -> speedMultiplier *= effect.magnitude;
+                case POISON -> poisonDamagePerSecond += effect.magnitude;
             }
         }
         enemy.speedMultiplier = speedMultiplier;
+
+        if (poisonDamagePerSecond > 0f && enemy.hp > 0f && !enemy.reachedGoal) {
+            enemy.hp -= poisonDamagePerSecond * deltaTime;
+        }
     }
 }

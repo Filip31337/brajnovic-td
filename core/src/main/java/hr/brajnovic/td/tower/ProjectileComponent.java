@@ -6,8 +6,8 @@ import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Pool.Poolable;
 
-/** A projectile in flight toward a predicted intercept point; applies damage on impact, then
- * lingers briefly at the impact point to let an impact animation play before being removed. */
+/** A projectile in flight toward a predicted intercept point; applies damage (and any on-hit effects)
+ * on impact, then lingers briefly at the impact point to let an impact animation play before being removed. */
 public class ProjectileComponent implements Component, Poolable {
 
     public final Vector2 startPosition = new Vector2();
@@ -22,6 +22,10 @@ public class ProjectileComponent implements Component, Poolable {
     public float slowRatio;
     /** How long (seconds) the applied slow stack lasts; only meaningful when slowRatio > 0. */
     public float slowDurationSeconds;
+    /** Damage/sec applied as a fresh poison stack to each hit enemy; 0 = no poison effect. */
+    public float poisonDamagePerSecond;
+    /** How long (seconds) the applied poison stack lasts; only meaningful when poisonDamagePerSecond > 0. */
+    public float poisonDurationSeconds;
     public float totalTime;
     public float timeToImpact;
     public float travelAngleDeg;
@@ -29,26 +33,30 @@ public class ProjectileComponent implements Component, Poolable {
     public float impactTimer = -1f;
     public String spriteSheetId;
 
-    public void init(Vector2 startPosition, Vector2 targetPosition, Entity target, int targetSpawnId, float damage,
-                      float aoeRadiusTiles, float slowRatio, float slowDurationSeconds, float speedTilesPerSec,
-                      float impactAnimationDuration, float spriteRotationOffsetDeg, String spriteSheetId) {
+    /** Copies the shot-independent (aoe/slow/poison/speed/impact/sprite) stats straight off the firing
+     * tower's definition, so this signature doesn't grow with every new on-hit effect type. */
+    public void init(Vector2 startPosition, Vector2 targetPosition, Entity target, int targetSpawnId,
+                      float damage, TowerDefinition definition) {
         this.startPosition.set(startPosition);
         this.targetPosition.set(targetPosition);
         this.target = target;
         this.targetSpawnId = targetSpawnId;
         this.damage = damage;
-        this.aoeRadiusTiles = aoeRadiusTiles;
-        this.slowRatio = slowRatio;
-        this.slowDurationSeconds = slowDurationSeconds;
-        this.totalTime = Math.max(0.01f, this.startPosition.dst(this.targetPosition) / speedTilesPerSec);
+        this.aoeRadiusTiles = definition.aoeRadiusTiles;
+        this.slowRatio = definition.slowRatio;
+        this.slowDurationSeconds = definition.slowDurationSeconds;
+        this.poisonDamagePerSecond = definition.poisonDamagePerSecond;
+        this.poisonDurationSeconds = definition.poisonDurationSeconds;
+        this.totalTime = Math.max(0.01f,
+            this.startPosition.dst(this.targetPosition) / definition.projectileSpeedTilesPerSec);
         this.timeToImpact = totalTime;
         this.travelAngleDeg = MathUtils.atan2(
             this.targetPosition.y - this.startPosition.y,
             this.targetPosition.x - this.startPosition.x
-        ) * MathUtils.radiansToDegrees + spriteRotationOffsetDeg;
-        this.impactAnimationDuration = impactAnimationDuration;
+        ) * MathUtils.radiansToDegrees + definition.projectileSpriteRotationOffsetDeg;
+        this.impactAnimationDuration = definition.projectileImpactDurationSeconds;
         this.impactTimer = -1f;
-        this.spriteSheetId = spriteSheetId;
+        this.spriteSheetId = definition.spriteSheetId;
     }
 
     @Override
@@ -61,6 +69,8 @@ public class ProjectileComponent implements Component, Poolable {
         aoeRadiusTiles = 0f;
         slowRatio = 0f;
         slowDurationSeconds = 0f;
+        poisonDamagePerSecond = 0f;
+        poisonDurationSeconds = 0f;
         totalTime = 0f;
         timeToImpact = 0f;
         travelAngleDeg = 0f;

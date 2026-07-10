@@ -5,7 +5,8 @@ package hr.brajnovic.td.enemy;
 public class ActiveEffect {
 
     public final EffectType type;
-    /** Effect-specific strength; for SLOW this is the speed multiplier this stack contributes (e.g. 0.9 = -10%). */
+    /** Effect-specific strength: for SLOW the speed multiplier this stack contributes (e.g. 0.9 = -10%);
+     * for POISON the damage/sec this stack contributes. */
     public final float magnitude;
     public float remainingSeconds;
 

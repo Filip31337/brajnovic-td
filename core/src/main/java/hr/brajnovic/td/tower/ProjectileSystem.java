@@ -73,5 +73,8 @@ public class ProjectileSystem extends IteratingSystem {
         if (projectile.slowRatio > 0f) {
             enemy.activeEffects.add(new ActiveEffect(EffectType.SLOW, 1f - projectile.slowRatio, projectile.slowDurationSeconds));
         }
+        if (projectile.poisonDamagePerSecond > 0f) {
+            enemy.activeEffects.add(new ActiveEffect(EffectType.POISON, projectile.poisonDamagePerSecond, projectile.poisonDurationSeconds));
+        }
     }
 }

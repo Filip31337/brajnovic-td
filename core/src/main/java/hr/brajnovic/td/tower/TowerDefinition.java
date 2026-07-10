@@ -17,6 +17,10 @@ public class TowerDefinition {
     public float slowRatio = 0f;
     /** How long (seconds) one slow stack lasts before expiring; only meaningful when slowRatio > 0. */
     public float slowDurationSeconds = 0f;
+    /** Damage/sec applied by each hit as a fresh stacking poison stack; 0 = no poison (e.g. arrow/cannon/ice). */
+    public float poisonDamagePerSecond = 0f;
+    /** How long (seconds) one poison stack lasts before expiring; only meaningful when poisonDamagePerSecond > 0. */
+    public float poisonDurationSeconds = 0f;
     public float turretIdleRevolutionSeconds;
     public float turretTrackingDegPerSec;
     public float fireAngleThresholdDeg;
