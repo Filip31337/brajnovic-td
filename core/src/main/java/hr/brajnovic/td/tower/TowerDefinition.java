@@ -13,6 +13,10 @@ public class TowerDefinition {
     public float projectileSpeedTilesPerSec;
     /** Splash radius in tiles applied around the impact point; 0 = single-target hit only (e.g. arrow_tower). */
     public float aoeRadiusTiles = 0f;
+    /** Fraction (0..1) each hit slows a target by, as a fresh stacking speed-multiplier stack; 0 = no slow (e.g. arrow/cannon). */
+    public float slowRatio = 0f;
+    /** How long (seconds) one slow stack lasts before expiring; only meaningful when slowRatio > 0. */
+    public float slowDurationSeconds = 0f;
     public float turretIdleRevolutionSeconds;
     public float turretTrackingDegPerSec;
     public float fireAngleThresholdDeg;

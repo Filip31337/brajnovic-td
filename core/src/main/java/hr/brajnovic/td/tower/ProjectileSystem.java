@@ -6,6 +6,8 @@ import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.math.Vector2;
 import hr.brajnovic.td.ecs.Mappers;
 import hr.brajnovic.td.ecs.PositionComponent;
+import hr.brajnovic.td.enemy.ActiveEffect;
+import hr.brajnovic.td.enemy.EffectType;
 import hr.brajnovic.td.enemy.EnemyComponent;
 
 public class ProjectileSystem extends IteratingSystem {
@@ -48,7 +50,7 @@ public class ProjectileSystem extends IteratingSystem {
         EnemyComponent targetEnemy = projectile.target == null ? null : Mappers.ENEMY.get(projectile.target);
         if (targetEnemy != null && targetEnemy.spawnId == projectile.targetSpawnId
             && targetEnemy.hp > 0f && !targetEnemy.reachedGoal) {
-            targetEnemy.hp -= projectile.damage;
+            applyHit(targetEnemy, projectile);
         }
     }
 
@@ -61,8 +63,15 @@ public class ProjectileSystem extends IteratingSystem {
             }
             Vector2 enemyPosition = Mappers.POSITION.get(candidate).value;
             if (enemyPosition.dst(projectile.targetPosition) <= projectile.aoeRadiusTiles) {
-                enemy.hp -= projectile.damage;
+                applyHit(enemy, projectile);
             }
+        }
+    }
+
+    private void applyHit(EnemyComponent enemy, ProjectileComponent projectile) {
+        enemy.hp -= projectile.damage;
+        if (projectile.slowRatio > 0f) {
+            enemy.activeEffects.add(new ActiveEffect(EffectType.SLOW, 1f - projectile.slowRatio, projectile.slowDurationSeconds));
         }
     }
 }

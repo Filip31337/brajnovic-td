@@ -39,5 +39,28 @@
     "projectileSpriteRotationOffsetDeg": 0,
     "shootAnimationDurationSeconds": 0.35,
     "projectileImpactDurationSeconds": 0.35
+  },
+  {
+    "id": "ice_tower",
+    "name": "tower.ice_tower.name",
+    "cost": 60,
+    "rangeTiles": 3,
+    "damage": 2.67,
+    "aoeRadiusTiles": 1.5,
+    "slowRatio": 0.10,
+    "slowDurationSeconds": 2.0,
+    "fireRatePerSecond": 0.6,
+    "projectileSpeedTilesPerSec": 4.5,
+    "turretIdleRevolutionSeconds": 4,
+    "turretTrackingDegPerSec": 120,
+    "fireAngleThresholdDeg": 8,
+    "damageType": "physical",
+    "shootSoundId": "ice_tower_shoot",
+    "spriteSheetId": "ice_tower_atlas",
+    "spriteRotationOffsetDeg": 90,
+    "turretVerticalOffsetTiles": 0.15,
+    "projectileSpriteRotationOffsetDeg": 0,
+    "shootAnimationDurationSeconds": 0.35,
+    "projectileImpactDurationSeconds": 0.35
   }
 ]

@@ -108,9 +108,9 @@ public class TowerTargetingSystem extends IteratingSystem {
         ProjectileComponent projectile = getEngine().createComponent(ProjectileComponent.class);
         float damage = TowerUpgrade.damageForLevel(tower.definition, tower.level);
         projectile.init(position, predictedImpact, tower.target, tower.targetSpawnId, damage,
-            tower.definition.aoeRadiusTiles, tower.definition.projectileSpeedTilesPerSec,
-            tower.definition.projectileImpactDurationSeconds, tower.definition.projectileSpriteRotationOffsetDeg,
-            tower.definition.spriteSheetId);
+            tower.definition.aoeRadiusTiles, tower.definition.slowRatio, tower.definition.slowDurationSeconds,
+            tower.definition.projectileSpeedTilesPerSec, tower.definition.projectileImpactDurationSeconds,
+            tower.definition.projectileSpriteRotationOffsetDeg, tower.definition.spriteSheetId);
 
         Entity projectileEntity = getEngine().createEntity();
         projectileEntity.add(projectilePosition);

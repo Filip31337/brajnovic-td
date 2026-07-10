@@ -46,6 +46,7 @@ import hr.brajnovic.td.enemy.EnemyComponent;
 import hr.brajnovic.td.enemy.EnemyLifecycleSystem;
 import hr.brajnovic.td.enemy.EnemyRegistry;
 import hr.brajnovic.td.enemy.EnemyState;
+import hr.brajnovic.td.enemy.EnemyStatusEffectSystem;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
@@ -149,6 +150,7 @@ public class GameScreen implements Screen {
 
         economy = new Economy(level.startingGold, level.startingLives);
         engine = new PooledEngine();
+        engine.addSystem(new EnemyStatusEffectSystem());
         engine.addSystem(new EnemyLifecycleSystem(economy));
         engine.addSystem(new TowerTargetingSystem());
         engine.addSystem(new ProjectileSystem());

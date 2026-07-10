@@ -6,6 +6,7 @@ import com.badlogic.gdx.ai.fsm.StateMachine;
 import com.badlogic.gdx.math.GridPoint2;
 import com.badlogic.gdx.utils.Pool.Poolable;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class EnemyComponent implements Component, Poolable {
@@ -23,6 +24,10 @@ public class EnemyComponent implements Component, Poolable {
     public float animationTime = 0f;
     public StateMachine<Entity, EnemyState> stateMachine;
     public float deathTimer = 0f;
+    /** Currently active stackable effects (e.g. ice tower slow stacks); see EnemyStatusEffectSystem. */
+    public final List<ActiveEffect> activeEffects = new ArrayList<>();
+    /** Product of all active effect magnitudes affecting movement speed; recomputed by EnemyStatusEffectSystem. */
+    public float speedMultiplier = 1f;
 
     @Override
     public void reset() {
@@ -38,5 +43,7 @@ public class EnemyComponent implements Component, Poolable {
         animationTime = 0f;
         stateMachine = null;
         deathTimer = 0f;
+        activeEffects.clear();
+        speedMultiplier = 1f;
     }
 }

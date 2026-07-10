@@ -18,6 +18,10 @@ public class ProjectileComponent implements Component, Poolable {
     public float damage;
     /** Splash radius in tiles around the impact point; 0 = only {@link #target} takes damage. */
     public float aoeRadiusTiles;
+    /** Fraction (0..1) applied as a fresh slow stack to each hit enemy; 0 = no slow effect. */
+    public float slowRatio;
+    /** How long (seconds) the applied slow stack lasts; only meaningful when slowRatio > 0. */
+    public float slowDurationSeconds;
     public float totalTime;
     public float timeToImpact;
     public float travelAngleDeg;
@@ -26,14 +30,16 @@ public class ProjectileComponent implements Component, Poolable {
     public String spriteSheetId;
 
     public void init(Vector2 startPosition, Vector2 targetPosition, Entity target, int targetSpawnId, float damage,
-                      float aoeRadiusTiles, float speedTilesPerSec, float impactAnimationDuration,
-                      float spriteRotationOffsetDeg, String spriteSheetId) {
+                      float aoeRadiusTiles, float slowRatio, float slowDurationSeconds, float speedTilesPerSec,
+                      float impactAnimationDuration, float spriteRotationOffsetDeg, String spriteSheetId) {
         this.startPosition.set(startPosition);
         this.targetPosition.set(targetPosition);
         this.target = target;
         this.targetSpawnId = targetSpawnId;
         this.damage = damage;
         this.aoeRadiusTiles = aoeRadiusTiles;
+        this.slowRatio = slowRatio;
+        this.slowDurationSeconds = slowDurationSeconds;
         this.totalTime = Math.max(0.01f, this.startPosition.dst(this.targetPosition) / speedTilesPerSec);
         this.timeToImpact = totalTime;
         this.travelAngleDeg = MathUtils.atan2(
@@ -53,6 +59,8 @@ public class ProjectileComponent implements Component, Poolable {
         targetSpawnId = 0;
         damage = 0f;
         aoeRadiusTiles = 0f;
+        slowRatio = 0f;
+        slowDurationSeconds = 0f;
         totalTime = 0f;
         timeToImpact = 0f;
         travelAngleDeg = 0f;

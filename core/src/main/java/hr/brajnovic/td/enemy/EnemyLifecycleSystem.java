@@ -53,7 +53,7 @@ public class EnemyLifecycleSystem extends IteratingSystem {
         float dx = targetX - position.value.x;
         float dy = targetY - position.value.y;
         float distance = (float) Math.sqrt(dx * dx + dy * dy);
-        float step = enemy.definition.speedTilesPerSec * deltaTime;
+        float step = enemy.definition.speedTilesPerSec * enemy.speedMultiplier * deltaTime;
 
         enemy.facingDirection = directionFromDelta(dx, dy);
 
