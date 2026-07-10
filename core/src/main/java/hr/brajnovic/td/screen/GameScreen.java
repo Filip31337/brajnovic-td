@@ -15,6 +15,7 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
@@ -42,6 +43,8 @@ import hr.brajnovic.td.GameConstants;
 import hr.brajnovic.td.ecs.Mappers;
 import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.economy.Economy;
+import hr.brajnovic.td.enemy.ActiveEffect;
+import hr.brajnovic.td.enemy.EffectType;
 import hr.brajnovic.td.enemy.EnemyComponent;
 import hr.brajnovic.td.enemy.EnemyLifecycleSystem;
 import hr.brajnovic.td.enemy.EnemyRegistry;
@@ -76,6 +79,13 @@ public class GameScreen implements Screen {
     private static final float TOWER_IDLE_FRAME_DURATION_SECONDS = 0.5f;
     private static final float PROJECTILE_FRAME_DURATION_SECONDS = 0.08f;
 
+    // rgb = tint target color for enemy_status_tint shader; a is unused here (blend strength is set per-enemy).
+    private static final Color ICE_TINT_COLOR = new Color(0.6f, 0.85f, 1f, 1f);
+    private static final Color POISON_TINT_COLOR = new Color(0.45f, 0.9f, 0.35f, 1f);
+    private static final float STATUS_TINT_STRENGTH = 0.35f;
+    private static final float COMBINED_STATUS_TINT_STRENGTH = 0.45f;
+    private static final Color NO_STATUS_TINT = new Color(1f, 1f, 1f, 0f);
+
     private static final Family TOWER_FAMILY = Family.all(TowerComponent.class, PositionComponent.class).get();
     private static final Family ENEMY_FAMILY = Family.all(EnemyComponent.class, PositionComponent.class).get();
     private static final Family PROJECTILE_FAMILY = Family.all(ProjectileComponent.class, PositionComponent.class).get();
@@ -98,6 +108,8 @@ public class GameScreen implements Screen {
     private final Viewport mapViewport;
     private final ShapeRenderer shapeRenderer;
     private final SpriteBatch spriteBatch;
+    private final ShaderProgram enemyStatusTintShader;
+    private final Color statusTintScratch = new Color();
     private final Map<String, SpriteSheet> enemySpriteSheetsById = new HashMap<>();
     private final Map<String, SpriteSheet> towerSpriteSheetsById = new HashMap<>();
 
@@ -164,6 +176,13 @@ public class GameScreen implements Screen {
         );
         shapeRenderer = new ShapeRenderer();
         spriteBatch = new SpriteBatch();
+        enemyStatusTintShader = new ShaderProgram(
+            Gdx.files.internal("shaders/enemy_status_tint.vert"),
+            Gdx.files.internal("shaders/enemy_status_tint.frag")
+        );
+        if (!enemyStatusTintShader.isCompiled()) {
+            throw new IllegalStateException("enemy_status_tint shader failed to compile: " + enemyStatusTintShader.getLog());
+        }
         for (var definition : enemyRegistry.all()) {
             if (definition.spriteSheetId != null) {
                 enemySpriteSheetsById.computeIfAbsent(definition.spriteSheetId,
@@ -643,9 +662,14 @@ public class GameScreen implements Screen {
         for (Entity entity : towerEntities) {
             drawTowerSprite(Mappers.TOWER.get(entity), Mappers.POSITION.get(entity));
         }
+        spriteBatch.setShader(enemyStatusTintShader);
         for (Entity entity : enemyEntities) {
-            drawEnemySprite(Mappers.ENEMY.get(entity), Mappers.POSITION.get(entity));
+            EnemyComponent enemy = Mappers.ENEMY.get(entity);
+            spriteBatch.setColor(computeStatusTintColor(enemy));
+            drawEnemySprite(enemy, Mappers.POSITION.get(entity));
         }
+        spriteBatch.setColor(Color.WHITE);
+        spriteBatch.setShader(null);
         for (Entity entity : projectileEntities) {
             drawProjectileSprite(Mappers.PROJECTILE.get(entity), Mappers.POSITION.get(entity));
         }
@@ -732,6 +756,33 @@ public class GameScreen implements Screen {
         float px = position.value.x * SCALE;
         float py = position.value.y * SCALE;
         spriteBatch.draw(frame, px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
+    }
+
+    /** rgb/a fed to enemy_status_tint's v_color: rgb is the tint target, a is blend strength (0 = untinted). */
+    private Color computeStatusTintColor(EnemyComponent enemy) {
+        boolean slowed = false;
+        boolean poisoned = false;
+        for (ActiveEffect effect : enemy.activeEffects) {
+            if (effect.type == EffectType.SLOW) {
+                slowed = true;
+            } else if (effect.type == EffectType.POISON) {
+                poisoned = true;
+            }
+        }
+        if (slowed && poisoned) {
+            return statusTintScratch.set(
+                (ICE_TINT_COLOR.r + POISON_TINT_COLOR.r) / 2f,
+                (ICE_TINT_COLOR.g + POISON_TINT_COLOR.g) / 2f,
+                (ICE_TINT_COLOR.b + POISON_TINT_COLOR.b) / 2f,
+                COMBINED_STATUS_TINT_STRENGTH);
+        }
+        if (slowed) {
+            return statusTintScratch.set(ICE_TINT_COLOR.r, ICE_TINT_COLOR.g, ICE_TINT_COLOR.b, STATUS_TINT_STRENGTH);
+        }
+        if (poisoned) {
+            return statusTintScratch.set(POISON_TINT_COLOR.r, POISON_TINT_COLOR.g, POISON_TINT_COLOR.b, STATUS_TINT_STRENGTH);
+        }
+        return NO_STATUS_TINT;
     }
 
     private void drawEnemyHpBar(EnemyComponent enemy, PositionComponent position) {
@@ -849,6 +900,7 @@ public class GameScreen implements Screen {
     public void dispose() {
         shapeRenderer.dispose();
         spriteBatch.dispose();
+        enemyStatusTintShader.dispose();
         for (SpriteSheet sheet : enemySpriteSheetsById.values()) {
             sheet.dispose();
         }
