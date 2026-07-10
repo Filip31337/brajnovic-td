@@ -16,6 +16,8 @@ public class ProjectileComponent implements Component, Poolable {
     /** See {@link TowerComponent#targetSpawnId}. */
     public int targetSpawnId;
     public float damage;
+    /** Splash radius in tiles around the impact point; 0 = only {@link #target} takes damage. */
+    public float aoeRadiusTiles;
     public float totalTime;
     public float timeToImpact;
     public float travelAngleDeg;
@@ -24,13 +26,14 @@ public class ProjectileComponent implements Component, Poolable {
     public String spriteSheetId;
 
     public void init(Vector2 startPosition, Vector2 targetPosition, Entity target, int targetSpawnId, float damage,
-                      float speedTilesPerSec, float impactAnimationDuration, float spriteRotationOffsetDeg,
-                      String spriteSheetId) {
+                      float aoeRadiusTiles, float speedTilesPerSec, float impactAnimationDuration,
+                      float spriteRotationOffsetDeg, String spriteSheetId) {
         this.startPosition.set(startPosition);
         this.targetPosition.set(targetPosition);
         this.target = target;
         this.targetSpawnId = targetSpawnId;
         this.damage = damage;
+        this.aoeRadiusTiles = aoeRadiusTiles;
         this.totalTime = Math.max(0.01f, this.startPosition.dst(this.targetPosition) / speedTilesPerSec);
         this.timeToImpact = totalTime;
         this.travelAngleDeg = MathUtils.atan2(
@@ -49,6 +52,7 @@ public class ProjectileComponent implements Component, Poolable {
         target = null;
         targetSpawnId = 0;
         damage = 0f;
+        aoeRadiusTiles = 0f;
         totalTime = 0f;
         timeToImpact = 0f;
         travelAngleDeg = 0f;

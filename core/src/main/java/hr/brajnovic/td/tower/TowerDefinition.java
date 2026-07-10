@@ -11,6 +11,8 @@ public class TowerDefinition {
     public float damage;
     public float fireRatePerSecond;
     public float projectileSpeedTilesPerSec;
+    /** Splash radius in tiles applied around the impact point; 0 = single-target hit only (e.g. arrow_tower). */
+    public float aoeRadiusTiles = 0f;
     public float turretIdleRevolutionSeconds;
     public float turretTrackingDegPerSec;
     public float fireAngleThresholdDeg;

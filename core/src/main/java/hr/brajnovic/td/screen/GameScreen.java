@@ -65,6 +65,7 @@ import hr.brajnovic.td.wave.GamePhase;
 import hr.brajnovic.td.wave.WaveController;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class GameScreen implements Screen {
@@ -109,7 +110,7 @@ public class GameScreen implements Screen {
     private Label waveLabel;
     private Label nextWaveTimerLabel;
     private TextButton startWaveButton;
-    private TextButton arrowTowerButton;
+    private final Map<String, TextButton> towerButtonsById = new LinkedHashMap<>();
     private TextButton pauseButton;
     private TextButton normalSpeedButton;
     private TextButton fastSpeedButton;
@@ -306,22 +307,27 @@ public class GameScreen implements Screen {
         root.add(livesLabel).padTop(4).left().row();
         root.add(waveLabel).padTop(4).left().row();
 
-        TowerDefinition arrowTower = towerRegistry.get("arrow_tower");
-        arrowTowerButton = new TextButton(Localization.get(arrowTower.name) + " (" + arrowTower.cost + "g)", skin);
-        arrowTowerButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if ("arrow_tower".equals(selectedTowerId)) {
-                    cancelPlacement();
-                } else {
-                    selectedTowerId = "arrow_tower";
+        boolean firstTowerButton = true;
+        for (TowerDefinition towerDefinition : towerRegistry.all()) {
+            String towerId = towerDefinition.id;
+            TextButton towerButton = new TextButton(Localization.get(towerDefinition.name) + " (" + towerDefinition.cost + "g)", skin);
+            towerButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    if (towerId.equals(selectedTowerId)) {
+                        cancelPlacement();
+                    } else {
+                        selectedTowerId = towerId;
+                    }
                 }
-            }
-        });
-        Table arrowTowerRow = new Table();
-        arrowTowerRow.add(buildTowerIconStack(arrowTower)).size(28f).padRight(6f);
-        arrowTowerRow.add(arrowTowerButton).width(200);
-        root.add(arrowTowerRow).padTop(24).left().row();
+            });
+            Table towerRow = new Table();
+            towerRow.add(buildTowerIconStack(towerDefinition)).size(28f).padRight(6f);
+            towerRow.add(towerButton).width(200);
+            root.add(towerRow).padTop(firstTowerButton ? 24 : 8).left().row();
+            towerButtonsById.put(towerId, towerButton);
+            firstTowerButton = false;
+        }
 
         root.add().expandY().row();
 
@@ -488,7 +494,9 @@ public class GameScreen implements Screen {
 
         boolean buildPhase = waveController.getPhase() == GamePhase.BUILD;
         startWaveButton.setDisabled(!waveController.canStartNextWave());
-        arrowTowerButton.setDisabled(!buildPhase);
+        for (TextButton towerButton : towerButtonsById.values()) {
+            towerButton.setDisabled(!buildPhase);
+        }
         if (!buildPhase) {
             selectedTowerId = null;
             selectedTowerEntity = null;

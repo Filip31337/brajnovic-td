@@ -18,5 +18,26 @@
     "projectileSpriteRotationOffsetDeg": 0,
     "shootAnimationDurationSeconds": 0.3,
     "projectileImpactDurationSeconds": 0.2
+  },
+  {
+    "id": "cannon_tower",
+    "name": "tower.cannon_tower.name",
+    "cost": 60,
+    "rangeTiles": 3,
+    "damage": 8,
+    "aoeRadiusTiles": 1.5,
+    "fireRatePerSecond": 0.6,
+    "projectileSpeedTilesPerSec": 4.5,
+    "turretIdleRevolutionSeconds": 4,
+    "turretTrackingDegPerSec": 120,
+    "fireAngleThresholdDeg": 8,
+    "damageType": "physical",
+    "shootSoundId": "cannon_tower_shoot",
+    "spriteSheetId": "tower_cannon_atlas",
+    "spriteRotationOffsetDeg": 90,
+    "turretVerticalOffsetTiles": 0.15,
+    "projectileSpriteRotationOffsetDeg": 0,
+    "shootAnimationDurationSeconds": 0.35,
+    "projectileImpactDurationSeconds": 0.35
   }
 ]
