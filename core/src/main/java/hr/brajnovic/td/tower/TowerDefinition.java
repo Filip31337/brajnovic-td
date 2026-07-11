@@ -27,8 +27,10 @@ public class TowerDefinition {
 
     /** Prepared for V2 elemental towers; unused while damage is flat. */
     public String damageType;
-    /** Prepared for future SoundManager wiring; no-op until real audio lands. */
+    /** Sound ID (matches a filename under assets/sounds/, no extension) played by {@link hr.brajnovic.td.sound.SoundManager} on fire. */
     public String shootSoundId;
+    /** Sound ID played when this tower's projectile lands a hit. */
+    public String impactSoundId;
 
     /** Base name of the sprites-src sheet (PNG + JSON) under assets/sprites-src/, e.g. "tower_atlas". */
     public String spriteSheetId;

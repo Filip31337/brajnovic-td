@@ -15,6 +15,8 @@ public class EnemyDefinition {
 
     /** Base name of the sprites-src sheet (PNG + JSON) under assets/sprites-src/, e.g. "orc_atlas". */
     public String spriteSheetId;
+    /** Sound ID (matches a filename under assets/sounds/, no extension) played by {@link hr.brajnovic.td.sound.SoundManager} on death. */
+    public String deathSoundId;
 
     /** Prepared for V2 elemental towers: damageType -> multiplier. Empty while damage is flat. */
     public ObjectMap<String, Float> resistances;

@@ -8,6 +8,7 @@
     "livesDamage": 1,
     "deathAnimationDurationSeconds": 0.48,
     "spriteSheetId": "orc_atlas",
+    "deathSoundId": "zombie_death",
     "resistances": {}
   }
 ]

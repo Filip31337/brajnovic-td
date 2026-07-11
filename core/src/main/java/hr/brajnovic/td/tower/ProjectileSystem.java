@@ -9,6 +9,7 @@ import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.enemy.ActiveEffect;
 import hr.brajnovic.td.enemy.EffectType;
 import hr.brajnovic.td.enemy.EnemyComponent;
+import hr.brajnovic.td.sound.SoundManager;
 
 public class ProjectileSystem extends IteratingSystem {
 
@@ -39,6 +40,7 @@ public class ProjectileSystem extends IteratingSystem {
             } else {
                 applySingleTargetDamage(projectile);
             }
+            SoundManager.play(projectile.impactSoundId);
             projectile.impactTimer = 0f;
         }
 

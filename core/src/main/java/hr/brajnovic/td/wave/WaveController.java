@@ -15,6 +15,7 @@ import hr.brajnovic.td.enemy.EnemyState;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
 import hr.brajnovic.td.pathfinding.AStarPathfinder;
+import hr.brajnovic.td.sound.SoundManager;
 
 import java.util.List;
 
@@ -89,6 +90,7 @@ public class WaveController {
             : Math.round(level.baseEnemyCountPerWave * (float) Math.pow(level.countScalePerWave, currentWaveNumber - 1));
         spawnTimer = 0f;
         phase = GamePhase.WAVE;
+        SoundManager.play("drums_wave_starting");
     }
 
     public void update(float delta) {
@@ -182,5 +184,6 @@ public class WaveController {
         economy.addGold(bonus);
         phase = GamePhase.BUILD;
         buildPhaseTimer = BUILD_PHASE_DURATION_SECONDS;
+        SoundManager.play("drums_wave_completed");
     }
 }

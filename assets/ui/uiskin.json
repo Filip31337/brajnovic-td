@@ -67,6 +67,14 @@ com.badlogic.gdx.scenes.scene2d.ui.Skin$TintedDrawable: {
     name: white
     color: highlight
   }
+  slider-filled: {
+    name: slider
+    color: highlight
+  }
+  slider-empty: {
+    name: slider
+    color: split
+  }
 }
 com.badlogic.gdx.scenes.scene2d.utils.TiledDrawable: {
   progress-bar-knob-t: {
@@ -107,6 +115,14 @@ com.badlogic.gdx.scenes.scene2d.ui.CheckBox$CheckBoxStyle: {
     checkboxOnOver: radio-selected-over
     checkboxOver: radio-over
     font: font
+  }
+}
+com.badlogic.gdx.scenes.scene2d.ui.Slider$SliderStyle: {
+  default-horizontal: {
+    background: slider-empty
+    knob: slider-knob
+    knobOver: slider-knob-over
+    knobBefore: slider-filled
   }
 }
 com.badlogic.gdx.scenes.scene2d.ui.ImageButton$ImageButtonStyle: {
@@ -188,26 +204,6 @@ com.badlogic.gdx.scenes.scene2d.ui.SelectBox$SelectBoxStyle: {
         scrollStyle: list
         listStyle: list-nobg
         backgroundOpen: select-box-open
-    }
-}
-com.badlogic.gdx.scenes.scene2d.ui.Slider$SliderStyle: {
-    default-horizontal: {
-        knobOver: slider-knob-over
-        knobDown: slider-knob-over
-        background: progress-bar-square
-        knob: slider-knob
-    }
-    default-vertical: {
-        knobOver: slider-knob-over
-        knobDown: slider-knob-over
-        background: progress-bar-square
-        knob: slider-knob
-    }
-    curved: {
-        knobOver: slider-knob-over
-        knobDown: slider-knob-over
-        background: slider
-        knob: slider-knob
     }
 }
 com.badlogic.gdx.scenes.scene2d.ui.SplitPane$SplitPaneStyle: {
@@ -392,12 +388,6 @@ com.badlogic.gdx.scenes.scene2d.ui.Window$WindowStyle: {
             backgroundOpen: selectDown, backgroundDisabled: selectDisabled, scrollStyle: default, listStyle:
             { background: selectList, fontColorUnselected: font, selection: selection, fontColorSelected: fontDown, font: default }
         }
-    },
-    com.badlogic.gdx.scenes.scene2d.ui.Slider$SliderStyle: {
-        default-horizontal: { background: sliderHorizontal, knob: sliderKnob, knobOver: sliderKnobOver, knobDown: sliderKnobDown,
-            disabledKnob: sliderKnobDisabled },
-        default-vertical: { background: sliderVertical, knob: sliderVerticalKnob, knobOver: sliderVerticalKnobOver,
-            knobDown: sliderVerticalKnobDown,    disabledKnob: sliderVerticalKnobDisabled }
     },
     com.badlogic.gdx.scenes.scene2d.ui.SplitPane$SplitPaneStyle: {
         default-vertical: { handle: splitPane },

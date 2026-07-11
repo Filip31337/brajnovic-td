@@ -4,6 +4,7 @@ import com.badlogic.gdx.Game;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.screen.GameScreen;
 import hr.brajnovic.td.screen.MenuScreen;
+import hr.brajnovic.td.sound.SoundManager;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class BrajnovicTD extends Game {
@@ -13,6 +14,7 @@ public class BrajnovicTD extends Game {
     @Override
     public void create() {
         Localization.init();
+        SoundManager.init();
         setScreen(new MenuScreen(this));
     }
 

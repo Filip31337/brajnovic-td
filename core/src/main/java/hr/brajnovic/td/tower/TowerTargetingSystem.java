@@ -9,6 +9,7 @@ import com.badlogic.gdx.math.Vector2;
 import hr.brajnovic.td.ecs.Mappers;
 import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.enemy.EnemyComponent;
+import hr.brajnovic.td.sound.SoundManager;
 
 /** "First" (progress-based) targeting: tracks the furthest-progressed enemy in range and fires leading-shot projectiles. */
 public class TowerTargetingSystem extends IteratingSystem {
@@ -99,6 +100,7 @@ public class TowerTargetingSystem extends IteratingSystem {
 
         tower.fireCooldown = 1f / TowerUpgrade.fireRateForLevel(tower.definition, tower.level);
         tower.timeSinceLastShot = 0f;
+        SoundManager.play(tower.definition.shootSoundId);
 
         Vector2 targetVelocity = enemyVelocity(targetEnemy, targetPosition);
         Vector2 predictedImpact = predictImpactPosition(position, targetPosition, targetVelocity, tower.definition.projectileSpeedTilesPerSec);

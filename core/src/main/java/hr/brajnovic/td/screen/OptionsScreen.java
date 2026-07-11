@@ -4,8 +4,10 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
@@ -13,6 +15,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import hr.brajnovic.td.BrajnovicTD;
 import hr.brajnovic.td.i18n.Localization;
+import hr.brajnovic.td.sound.SoundManager;
 import hr.brajnovic.td.ui.SkinFactory;
 
 public class OptionsScreen implements Screen {
@@ -58,6 +61,34 @@ public class OptionsScreen implements Screen {
         });
         root.add(englishButton).width(160).padBottom(30).row();
 
+        Label volumeLabel = new Label(Localization.get("options.volume"), skin);
+        root.add(volumeLabel).colspan(2).padBottom(12).row();
+
+        Table volumeRow = new Table();
+        Slider volumeSlider = new Slider(0f, 1f, 0.05f, false, skin);
+        volumeSlider.setValue(SoundManager.getVolume());
+        Label volumePercentLabel = new Label(volumePercentText(volumeSlider.getValue()), skin);
+        volumeSlider.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                SoundManager.setVolume(volumeSlider.getValue());
+                volumePercentLabel.setText(volumePercentText(volumeSlider.getValue()));
+            }
+        });
+        volumeRow.add(volumeSlider).width(200).padRight(12);
+        volumeRow.add(volumePercentLabel).width(44).left();
+        root.add(volumeRow).colspan(2).padBottom(20).row();
+
+        CheckBox muteCheckBox = new CheckBox(" " + Localization.get("options.mute"), skin);
+        muteCheckBox.setChecked(SoundManager.isMuted());
+        muteCheckBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                SoundManager.setMuted(muteCheckBox.isChecked());
+            }
+        });
+        root.add(muteCheckBox).colspan(2).padBottom(30).row();
+
         TextButton backButton = new TextButton(Localization.get("options.back"), skin);
         backButton.addListener(new ChangeListener() {
             @Override
@@ -101,5 +132,9 @@ public class OptionsScreen implements Screen {
     public void dispose() {
         stage.dispose();
         skin.dispose();
+    }
+
+    private static String volumePercentText(float value) {
+        return Math.round(value * 100) + "%";
     }
 }

@@ -55,6 +55,7 @@ import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
 import hr.brajnovic.td.map.LevelLoader;
 import hr.brajnovic.td.render.SpriteSheet;
+import hr.brajnovic.td.sound.SoundManager;
 import hr.brajnovic.td.tower.ProjectileComponent;
 import hr.brajnovic.td.tower.ProjectileSystem;
 import hr.brajnovic.td.tower.TowerComponent;
@@ -627,6 +628,7 @@ public class GameScreen implements Screen {
                 showOverlay(Localization.get("overlay.gameOver.title"), Localization.get("overlay.gameOver.message"));
             } else if (waveController.allWavesCleared()) {
                 gameEnded = true;
+                SoundManager.play("game_over");
                 showOverlay(Localization.get("overlay.win.title"), Localization.get("overlay.win.message"));
             }
         }
