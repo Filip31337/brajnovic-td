@@ -2,6 +2,7 @@ package hr.brajnovic.td;
 
 import com.badlogic.gdx.Game;
 import hr.brajnovic.td.i18n.Localization;
+import hr.brajnovic.td.input.InputSettings;
 import hr.brajnovic.td.screen.GameScreen;
 import hr.brajnovic.td.screen.MenuScreen;
 import hr.brajnovic.td.sound.SoundManager;
@@ -15,6 +16,7 @@ public class BrajnovicTD extends Game {
     public void create() {
         Localization.init();
         SoundManager.init();
+        InputSettings.init();
         setScreen(new MenuScreen(this));
     }
 

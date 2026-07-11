@@ -15,6 +15,8 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import hr.brajnovic.td.BrajnovicTD;
 import hr.brajnovic.td.i18n.Localization;
+import hr.brajnovic.td.input.InputMode;
+import hr.brajnovic.td.input.InputSettings;
 import hr.brajnovic.td.sound.SoundManager;
 import hr.brajnovic.td.ui.SkinFactory;
 
@@ -88,6 +90,31 @@ public class OptionsScreen implements Screen {
             }
         });
         root.add(muteCheckBox).colspan(2).padBottom(30).row();
+
+        Label inputModeLabel = new Label(Localization.get("options.inputMode"), skin);
+        root.add(inputModeLabel).colspan(2).padBottom(12).row();
+
+        TextButton mouseButton = new TextButton("Mouse", skin);
+        mouseButton.setDisabled(InputMode.MOUSE.equals(InputSettings.getMode()));
+        mouseButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                InputSettings.setMode(InputMode.MOUSE);
+                game.setScreen(new OptionsScreen(game));
+            }
+        });
+        root.add(mouseButton).width(160).padRight(12).padBottom(30);
+
+        TextButton touchButton = new TextButton("Touch", skin);
+        touchButton.setDisabled(InputMode.TOUCH.equals(InputSettings.getMode()));
+        touchButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                InputSettings.setMode(InputMode.TOUCH);
+                game.setScreen(new OptionsScreen(game));
+            }
+        });
+        root.add(touchButton).width(160).padBottom(30).row();
 
         TextButton backButton = new TextButton(Localization.get("options.back"), skin);
         backButton.addListener(new ChangeListener() {

@@ -13,6 +13,8 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.NinePatch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
@@ -26,6 +28,7 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Stack;
@@ -33,6 +36,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
@@ -54,6 +58,8 @@ import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
 import hr.brajnovic.td.map.LevelLoader;
+import hr.brajnovic.td.input.InputMode;
+import hr.brajnovic.td.input.InputSettings;
 import hr.brajnovic.td.render.SpriteSheet;
 import hr.brajnovic.td.sound.SoundManager;
 import hr.brajnovic.td.tower.ProjectileComponent;
@@ -110,6 +116,9 @@ public class GameScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
     private final SpriteBatch spriteBatch;
     private final ShaderProgram enemyStatusTintShader;
+    private final Texture confirmIconTexture;
+    private final Texture cancelIconTexture;
+    private final Texture placementPanelTexture;
     private final Color statusTintScratch = new Color();
     private final Map<String, SpriteSheet> enemySpriteSheetsById = new HashMap<>();
     private final Map<String, SpriteSheet> towerSpriteSheetsById = new HashMap<>();
@@ -124,6 +133,7 @@ public class GameScreen implements Screen {
     private Label waveLabel;
     private Label nextWaveTimerLabel;
     private TextButton startWaveButton;
+    private Window placementConfirmWindow;
     private final Map<String, TextButton> towerButtonsById = new LinkedHashMap<>();
     private TextButton pauseButton;
     private TextButton normalSpeedButton;
@@ -177,6 +187,10 @@ public class GameScreen implements Screen {
         );
         shapeRenderer = new ShapeRenderer();
         spriteBatch = new SpriteBatch();
+        confirmIconTexture = new Texture(Gdx.files.internal("ui/icon_confirm.png"));
+        cancelIconTexture = new Texture(Gdx.files.internal("ui/icon_cancel.png"));
+        placementPanelTexture = new Texture(Gdx.files.internal("ui/panel_rounded.png"));
+        placementPanelTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         enemyStatusTintShader = new ShaderProgram(
             Gdx.files.internal("shaders/enemy_status_tint.vert"),
             Gdx.files.internal("shaders/enemy_status_tint.frag")
@@ -203,6 +217,7 @@ public class GameScreen implements Screen {
         buildHud();
         buildOverlay();
         buildTowerInfoWindow();
+        buildPlacementConfirmWindow();
 
         inputMultiplexer = new InputMultiplexer(overlayStage, hudStage, mapInputProcessor);
 
@@ -212,33 +227,40 @@ public class GameScreen implements Screen {
     private final InputAdapter mapInputProcessor = new InputAdapter() {
         @Override
         public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-            if (button == Input.Buttons.RIGHT) {
+            if (InputSettings.getMode() == InputMode.MOUSE && button == Input.Buttons.RIGHT) {
                 cancelPlacement();
                 cancelSelection();
                 return true;
             }
-            if (button == Input.Buttons.LEFT) {
-                updateHoverTile(screenX, screenY);
-                if (selectedTowerId != null) {
+            if (button != Input.Buttons.LEFT) {
+                return false;
+            }
+            updateHoverTile(screenX, screenY);
+            if (selectedTowerId != null) {
+                // TOUCH confirms via the placementConfirmWindow's checkmark/X instead of this tap
+                // (no hover means a tap can only move the ghost preview, not commit to placing it).
+                if (InputSettings.getMode() == InputMode.MOUSE) {
                     tryPlaceSelectedTower();
-                    return true;
                 }
-                if (waveController.getPhase() == GamePhase.BUILD) {
-                    return trySelectTowerAt(hoverTileX, hoverTileY);
-                }
+                return true;
+            }
+            if (waveController.getPhase() == GamePhase.BUILD) {
+                return trySelectTowerAt(hoverTileX, hoverTileY);
             }
             return false;
         }
 
         @Override
         public boolean mouseMoved(int screenX, int screenY) {
-            updateHoverTile(screenX, screenY);
+            if (InputSettings.getMode() == InputMode.MOUSE) {
+                updateHoverTile(screenX, screenY);
+            }
             return false;
         }
 
         @Override
         public boolean keyDown(int keycode) {
-            if (keycode == Input.Keys.ESCAPE) {
+            if (InputSettings.getMode() == InputMode.MOUSE && keycode == Input.Keys.ESCAPE) {
                 cancelPlacement();
                 cancelSelection();
                 return true;
@@ -256,6 +278,8 @@ public class GameScreen implements Screen {
 
     private void cancelPlacement() {
         selectedTowerId = null;
+        hoverTileX = Integer.MIN_VALUE;
+        hoverTileY = Integer.MIN_VALUE;
     }
 
     private void cancelSelection() {
@@ -302,6 +326,19 @@ public class GameScreen implements Screen {
         entity.add(towerComponent);
         entity.add(positionComponent);
         engine.addEntity(entity);
+
+        // Clear the ghost/confirm-panel target so it doesn't linger on the tile that was just filled;
+        // MOUSE mode repopulates it instantly on the next mouseMoved, TOUCH mode waits for the next tap.
+        hoverTileX = Integer.MIN_VALUE;
+        hoverTileY = Integer.MIN_VALUE;
+
+        if (InputSettings.getMode() == InputMode.TOUCH) {
+            // MOUSE keeps selectedTowerId so repeated clicks buy more of the same tower. In TOUCH that
+            // same "still selected" state made re-tapping that tower's icon look like a deselect toggle
+            // (see the buildHud() tower button listener), so a second placement silently did nothing
+            // until the icon was tapped a third time. Deselecting here makes every icon tap unambiguous.
+            selectedTowerId = null;
+        }
     }
 
     private void buildHud() {
@@ -477,6 +514,56 @@ public class GameScreen implements Screen {
         overlayStage.addActor(towerInfoWindow);
     }
 
+    /** TOUCH-mode-only confirm/cancel panel shown next to the ghost preview tile (replaces the mouse-only
+     * right-click/Escape cancel, since touch has neither): green check confirms the placement in-place,
+     * red X cancels placement mode without spending gold. */
+    private void buildPlacementConfirmWindow() {
+        Window.WindowStyle roundedStyle = new Window.WindowStyle(skin.get(Window.WindowStyle.class));
+        NinePatch panelPatch = new NinePatch(placementPanelTexture, 14, 14, 14, 14);
+        roundedStyle.background = new NinePatchDrawable(panelPatch);
+
+        placementConfirmWindow = new Window("", roundedStyle);
+        placementConfirmWindow.setMovable(false);
+
+        ImageButton.ImageButtonStyle confirmStyle = new ImageButton.ImageButtonStyle();
+        confirmStyle.imageUp = new TextureRegionDrawable(new TextureRegion(confirmIconTexture));
+        ImageButton confirmButton = new ImageButton(confirmStyle);
+        confirmButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                tryPlaceSelectedTower();
+            }
+        });
+        placementConfirmWindow.add(confirmButton).size(48f).pad(6f);
+
+        ImageButton.ImageButtonStyle cancelStyle = new ImageButton.ImageButtonStyle();
+        cancelStyle.imageUp = new TextureRegionDrawable(new TextureRegion(cancelIconTexture));
+        ImageButton cancelIconButton = new ImageButton(cancelStyle);
+        cancelIconButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                cancelPlacement();
+            }
+        });
+        placementConfirmWindow.add(cancelIconButton).size(48f).pad(6f);
+
+        placementConfirmWindow.pack();
+        placementConfirmWindow.setVisible(false);
+        placementConfirmWindow.setTouchable(Touchable.disabled);
+        overlayStage.addActor(placementConfirmWindow);
+    }
+
+    private void updatePlacementConfirmWindow() {
+        boolean show = InputSettings.getMode() == InputMode.TOUCH
+            && selectedTowerId != null
+            && gridMap.isInBounds(hoverTileX, hoverTileY);
+        placementConfirmWindow.setVisible(show);
+        placementConfirmWindow.setTouchable(show ? Touchable.enabled : Touchable.disabled);
+        if (show) {
+            positionWindowNearTile(placementConfirmWindow, hoverTileX + 0.5f, hoverTileY + 0.5f);
+        }
+    }
+
     private void upgradeSelectedTower() {
         TowerComponent tower = Mappers.TOWER.get(selectedTowerEntity);
         if (!TowerUpgrade.canUpgrade(tower.level)) {
@@ -593,9 +680,16 @@ public class GameScreen implements Screen {
     }
 
     private void positionTowerInfoWindow() {
-        Vector2 worldPoint = Mappers.POSITION.get(selectedTowerEntity).value.cpy();
-        // PositionComponent is in tile units, but mapCamera/mapViewport operate in pixels (see
-        // renderEntities' px = position.value.x * SCALE) - convert before projecting.
+        Vector2 tilePosition = Mappers.POSITION.get(selectedTowerEntity).value;
+        positionWindowNearTile(towerInfoWindow, tilePosition.x, tilePosition.y);
+    }
+
+    /** Positions a floating overlay window next to a tile (world tile-center coordinates), matching the
+     * tower info panel's placement: to the right of the tile, vertically centered, clamped to stage bounds. */
+    private void positionWindowNearTile(Window window, float tileX, float tileY) {
+        Vector2 worldPoint = new Vector2(tileX, tileY);
+        // PositionComponent/tile coords are in tile units, but mapCamera/mapViewport operate in pixels
+        // (see renderEntities' px = position.value.x * SCALE) - convert before projecting.
         worldPoint.scl(SCALE);
         worldPoint.x += SCALE * 0.7f;
         Vector2 screenPoint = mapViewport.project(worldPoint);
@@ -605,10 +699,10 @@ public class GameScreen implements Screen {
         Vector2 stagePoint = overlayStage.screenToStageCoordinates(screenPoint);
 
         float x = MathUtils.clamp(stagePoint.x,
-            0f, overlayStage.getWidth() - towerInfoWindow.getWidth());
-        float y = MathUtils.clamp(stagePoint.y - towerInfoWindow.getHeight() / 2f,
-            0f, overlayStage.getHeight() - towerInfoWindow.getHeight());
-        towerInfoWindow.setPosition(x, y);
+            0f, overlayStage.getWidth() - window.getWidth());
+        float y = MathUtils.clamp(stagePoint.y - window.getHeight() / 2f,
+            0f, overlayStage.getHeight() - window.getHeight());
+        window.setPosition(x, y);
     }
 
     @Override
@@ -647,6 +741,7 @@ public class GameScreen implements Screen {
         hudStage.draw();
 
         updateTowerInfoWindow();
+        updatePlacementConfirmWindow();
         overlayStage.act(delta);
         overlayStage.getViewport().apply();
         overlayStage.draw();
@@ -903,6 +998,9 @@ public class GameScreen implements Screen {
         shapeRenderer.dispose();
         spriteBatch.dispose();
         enemyStatusTintShader.dispose();
+        confirmIconTexture.dispose();
+        cancelIconTexture.dispose();
+        placementPanelTexture.dispose();
         for (SpriteSheet sheet : enemySpriteSheetsById.values()) {
             sheet.dispose();
         }
