@@ -12,5 +12,6 @@
   "bossEnemyId": "orc",
   "bossHpMultiplier": 8.0,
   "waveClearGoldBonusBase": 20,
-  "waveClearGoldBonusScalePerWave": 1.1
+  "waveClearGoldBonusScalePerWave": 1.1,
+  "nextLevelId": "level_02"
 }

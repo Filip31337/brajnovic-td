@@ -23,4 +23,7 @@ public class LevelDefinition {
 
     public int waveClearGoldBonusBase;
     public float waveClearGoldBonusScalePerWave;
+
+    /** Id of the level to play next (e.g. "level_02"), or null if this is the final level in the chain. */
+    public String nextLevelId;
 }

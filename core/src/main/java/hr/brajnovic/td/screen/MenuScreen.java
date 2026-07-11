@@ -12,6 +12,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import hr.brajnovic.td.BrajnovicTD;
+import hr.brajnovic.td.GameConstants;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.ui.SkinFactory;
 
@@ -49,7 +50,7 @@ public class MenuScreen implements Screen {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 game.discardPausedGame();
-                game.setScreen(new GameScreen(game));
+                game.setScreen(new GameScreen(game, GameConstants.FIRST_LEVEL_ID));
             }
         });
         root.add(playButton).width(200).padBottom(20).row();

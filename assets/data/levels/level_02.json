@@ -1,0 +1,17 @@
+{
+  "id": "level_02",
+  "tmxPath": "maps/level_02.tmx",
+  "startingGold": 350,
+  "startingLives": 20,
+  "waveCount": 10,
+  "baseEnemyId": "orc",
+  "baseEnemyCountPerWave": 10,
+  "hpScalePerWave": 1.20,
+  "countScalePerWave": 1.12,
+  "bossWaveInterval": 5,
+  "bossEnemyId": "orc",
+  "bossHpMultiplier": 10.0,
+  "waveClearGoldBonusBase": 40,
+  "waveClearGoldBonusScalePerWave": 1.1,
+  "nextLevelId": "level_03"
+}

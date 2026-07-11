@@ -142,6 +142,9 @@ public class GameScreen implements Screen {
 
     private Window overlayWindow;
     private Label overlayMessageLabel;
+    private TextButton overlayRetryButton;
+    private TextButton overlayNextLevelButton;
+    private Table overlayButtonRow;
     private boolean gameEnded = false;
 
     private Window towerInfoWindow;
@@ -160,12 +163,12 @@ public class GameScreen implements Screen {
     private int hoverTileX = Integer.MIN_VALUE;
     private int hoverTileY = Integer.MIN_VALUE;
 
-    public GameScreen(BrajnovicTD game) {
+    public GameScreen(BrajnovicTD game, String levelId) {
         this.game = game;
 
         towerRegistry = TowerRegistry.loadFromInternal("data/towers.json");
         enemyRegistry = EnemyRegistry.loadFromInternal("data/enemies.json");
-        level = LevelLoader.loadFromInternal("data/levels/level_01.json");
+        level = LevelLoader.loadFromInternal("data/levels/" + levelId + ".json");
 
         tiledMap = new TmxMapLoader().load(level.tmxPath);
         gridMap = GridMap.fromTiledMap(tiledMap);
@@ -438,14 +441,27 @@ public class GameScreen implements Screen {
         overlayMessageLabel = new Label("", skin);
         overlayWindow.add(overlayMessageLabel).pad(20).row();
 
-        TextButton retryButton = new TextButton(Localization.get("overlay.retry"), skin);
-        retryButton.addListener(new ChangeListener() {
+        overlayRetryButton = new TextButton(Localization.get("overlay.retry"), skin);
+        overlayRetryButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                game.setScreen(new GameScreen(game));
+                game.setScreen(new GameScreen(game, level.id));
             }
         });
-        overlayWindow.add(retryButton).width(160).padBottom(16);
+
+        overlayNextLevelButton = new TextButton(Localization.get("overlay.nextLevel"), skin);
+        overlayNextLevelButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                game.setScreen(new GameScreen(game, level.nextLevelId));
+            }
+        });
+
+        // A dedicated row (rebuilt per showOverlay call) instead of adding both buttons up front - an
+        // invisible Cell's actor still reserves its layout space, which made the Win overlay pack() as
+        // wide as both buttons side by side even though only one was ever shown.
+        overlayButtonRow = new Table();
+        overlayWindow.add(overlayButtonRow).padBottom(16).row();
 
         overlayWindow.pack();
         overlayWindow.setVisible(false);
@@ -584,9 +600,11 @@ public class GameScreen implements Screen {
         cancelSelection();
     }
 
-    private void showOverlay(String title, String message) {
+    private void showOverlay(String title, String message, boolean nextLevel) {
         overlayWindow.getTitleLabel().setText(title);
         overlayMessageLabel.setText(message);
+        overlayButtonRow.clearChildren();
+        overlayButtonRow.add(nextLevel ? overlayNextLevelButton : overlayRetryButton).width(160);
         overlayWindow.pack();
         overlayWindow.setPosition(
             (overlayStage.getViewport().getWorldWidth() - overlayWindow.getWidth()) / 2f,
@@ -719,11 +737,15 @@ public class GameScreen implements Screen {
 
             if (economy.isGameOver()) {
                 gameEnded = true;
-                showOverlay(Localization.get("overlay.gameOver.title"), Localization.get("overlay.gameOver.message"));
+                showOverlay(Localization.get("overlay.gameOver.title"), Localization.get("overlay.gameOver.message"), false);
             } else if (waveController.allWavesCleared()) {
                 gameEnded = true;
                 SoundManager.play("game_over");
-                showOverlay(Localization.get("overlay.win.title"), Localization.get("overlay.win.message"));
+                if (level.nextLevelId != null) {
+                    showOverlay(Localization.get("overlay.levelComplete.title"), Localization.get("overlay.levelComplete.message"), true);
+                } else {
+                    showOverlay(Localization.get("overlay.win.title"), Localization.get("overlay.win.message"), false);
+                }
             }
         }
 
