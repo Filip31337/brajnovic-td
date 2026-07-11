@@ -556,7 +556,7 @@ public class GameScreen implements Screen {
         towerInfoWindow.getTitleLabel().setText(Localization.get(definition.name));
         towerInfoLevelLabel.setText(Localization.format("tower.info.level", tower.level, TowerUpgrade.MAX_LEVEL));
         towerInfoDamageLabel.setText(Localization.format("tower.info.damage",
-            (int) TowerUpgrade.damageForLevel(definition, tower.level)));
+            TowerUpgrade.damageForLevel(definition, tower.level)));
         towerInfoRangeLabel.setText(Localization.format("tower.info.range",
             TowerUpgrade.rangeForLevel(definition, tower.level)));
         towerInfoFireRateLabel.setText(Localization.format("tower.info.fireRate",
