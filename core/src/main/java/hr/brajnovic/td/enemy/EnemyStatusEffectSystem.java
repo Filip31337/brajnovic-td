@@ -20,6 +20,10 @@ public class EnemyStatusEffectSystem extends IteratingSystem {
     protected void processEntity(Entity entity, float deltaTime) {
         EnemyComponent enemy = Mappers.ENEMY.get(entity);
 
+        if (enemy.hitFlashTimer > 0f) {
+            enemy.hitFlashTimer = Math.max(0f, enemy.hitFlashTimer - deltaTime);
+        }
+
         Iterator<ActiveEffect> iterator = enemy.activeEffects.iterator();
         while (iterator.hasNext()) {
             ActiveEffect effect = iterator.next();

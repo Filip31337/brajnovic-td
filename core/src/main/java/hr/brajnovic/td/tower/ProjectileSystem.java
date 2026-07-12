@@ -80,6 +80,7 @@ public class ProjectileSystem extends IteratingSystem {
 
     private void applyHit(EnemyComponent enemy, ProjectileComponent projectile) {
         enemy.hp -= projectile.damage;
+        enemy.hitFlashTimer = GameConstants.ENEMY_HIT_FLASH_DURATION_SECONDS;
         if (projectile.slowRatio > 0f) {
             enemy.activeEffects.add(new ActiveEffect(EffectType.SLOW, 1f - projectile.slowRatio, projectile.slowDurationSeconds));
         }

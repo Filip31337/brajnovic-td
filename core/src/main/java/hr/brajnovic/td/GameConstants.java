@@ -18,6 +18,7 @@ public final class GameConstants {
     public static final int WINDOW_HEIGHT_PX = MAP_VIEWPORT_HEIGHT_PX;
 
     public static final float ENEMY_SPEED_TILES_PER_SEC = 80f / SCALED_TILE_SIZE_PX;
+    public static final float ENEMY_HIT_FLASH_DURATION_SECONDS = 0.12f;
 
     public static final String FIRST_LEVEL_ID = "level_01";
 

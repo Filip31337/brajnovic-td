@@ -24,6 +24,8 @@ public class EnemyComponent implements Component, Poolable {
     public float animationTime = 0f;
     public StateMachine<Entity, EnemyState> stateMachine;
     public float deathTimer = 0f;
+    /** Counts down from GameConstants.ENEMY_HIT_FLASH_DURATION_SECONDS on a direct hit; see EnemyStatusEffectSystem/GameScreen. */
+    public float hitFlashTimer = 0f;
     /** Currently active stackable effects (e.g. ice tower slow stacks); see EnemyStatusEffectSystem. */
     public final List<ActiveEffect> activeEffects = new ArrayList<>();
     /** Product of all active effect magnitudes affecting movement speed; recomputed by EnemyStatusEffectSystem. */
@@ -43,6 +45,7 @@ public class EnemyComponent implements Component, Poolable {
         animationTime = 0f;
         stateMachine = null;
         deathTimer = 0f;
+        hitFlashTimer = 0f;
         activeEffects.clear();
         speedMultiplier = 1f;
     }

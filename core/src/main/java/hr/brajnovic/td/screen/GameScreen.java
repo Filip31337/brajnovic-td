@@ -13,6 +13,7 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.NinePatch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -76,8 +77,10 @@ import hr.brajnovic.td.ui.SkinFactory;
 import hr.brajnovic.td.wave.GamePhase;
 import hr.brajnovic.td.wave.WaveController;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class GameScreen implements Screen {
@@ -93,6 +96,15 @@ public class GameScreen implements Screen {
     private static final float STATUS_TINT_STRENGTH = 0.35f;
     private static final float COMBINED_STATUS_TINT_STRENGTH = 0.45f;
     private static final Color NO_STATUS_TINT = new Color(1f, 1f, 1f, 0f);
+    private static final float HIT_FLASH_PEAK_STRENGTH = 0.375f;
+
+    // Real edge-detect outline shader for the selected/hovered tower (see tower_outline.frag): a single
+    // shader pass reads the sprite's own silhouette, so it stays a clean ring even for a rotated turret -
+    // the earlier multi-draw offset trick fanned rotated art out into visible ghost copies instead.
+    private static final Color TOWER_OUTLINE_COLOR = new Color(1f, 1f, 1f, 1f);
+    // Matches the shader's max sample radius (2 texels, see tower_outline.frag) - each outline frame
+    // texture gets a real transparent border this wide so the shader never needs to sample beyond it.
+    private static final int OUTLINE_FRAME_PADDING_PX = 2;
 
     private static final Family TOWER_FAMILY = Family.all(TowerComponent.class, PositionComponent.class).get();
     private static final Family ENEMY_FAMILY = Family.all(EnemyComponent.class, PositionComponent.class).get();
@@ -117,6 +129,7 @@ public class GameScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
     private final SpriteBatch spriteBatch;
     private final ShaderProgram enemyStatusTintShader;
+    private final ShaderProgram towerOutlineShader;
     private final ParticleEffectManager particleEffectManager;
     private final Texture confirmIconTexture;
     private final Texture cancelIconTexture;
@@ -124,6 +137,10 @@ public class GameScreen implements Screen {
     private final Color statusTintScratch = new Color();
     private final Map<String, SpriteSheet> enemySpriteSheetsById = new HashMap<>();
     private final Map<String, SpriteSheet> towerSpriteSheetsById = new HashMap<>();
+    private final Map<String, TextureRegion> outlineBaseFrameById = new HashMap<>();
+    private final Map<String, TextureRegion[]> outlineTurretIdleFramesById = new HashMap<>();
+    private final Map<String, TextureRegion[]> outlineTurretShootFramesById = new HashMap<>();
+    private final List<Texture> outlineFrameTextures = new ArrayList<>();
 
     private final Stage hudStage;
     private final Stage overlayStage;
@@ -204,6 +221,13 @@ public class GameScreen implements Screen {
         if (!enemyStatusTintShader.isCompiled()) {
             throw new IllegalStateException("enemy_status_tint shader failed to compile: " + enemyStatusTintShader.getLog());
         }
+        towerOutlineShader = new ShaderProgram(
+            Gdx.files.internal("shaders/enemy_status_tint.vert"),
+            Gdx.files.internal("shaders/tower_outline.frag")
+        );
+        if (!towerOutlineShader.isCompiled()) {
+            throw new IllegalStateException("tower_outline shader failed to compile: " + towerOutlineShader.getLog());
+        }
         for (var definition : enemyRegistry.all()) {
             if (definition.spriteSheetId != null) {
                 enemySpriteSheetsById.computeIfAbsent(definition.spriteSheetId,
@@ -216,6 +240,7 @@ public class GameScreen implements Screen {
                     id -> SpriteSheet.loadFromInternal("sprites-src/" + id));
             }
         }
+        buildTowerOutlineFrames();
 
         skin = SkinFactory.createSkin();
         hudStage = new Stage(new ScreenViewport());
@@ -783,6 +808,10 @@ public class GameScreen implements Screen {
 
         spriteBatch.setProjectionMatrix(mapCamera.combined);
         spriteBatch.begin();
+        Entity highlightedTower = resolveHighlightedTower();
+        if (highlightedTower != null) {
+            drawTowerOutline(Mappers.TOWER.get(highlightedTower), Mappers.POSITION.get(highlightedTower));
+        }
         for (Entity entity : towerEntities) {
             drawTowerSprite(Mappers.TOWER.get(entity), Mappers.POSITION.get(entity));
         }
@@ -832,38 +861,159 @@ public class GameScreen implements Screen {
         shapeRenderer.end();
     }
 
+    private record TowerFrames(TextureRegion base, TextureRegion turret, float rotation, float originX, float originY) {
+    }
+
+    private record TurretFrameSelection(String animationName, int frameIndex, float rotation) {
+    }
+
+    /** Picks the turret animation/frame/rotation for the current tower state - shared by drawTowerSprite
+     * (reads frames straight off the shared atlas SpriteSheet) and drawTowerOutline (reads the same
+     * animation/index off the padded per-frame outline textures instead), so the two never drift apart. */
+    private TurretFrameSelection selectTurretFrame(TowerComponent tower, SpriteSheet sheet) {
+        float rotation = tower.turretAngleDeg - 90f + tower.definition.spriteRotationOffsetDeg;
+        TowerState state = tower.stateMachine.getCurrentState();
+        if (state == TowerState.FIRING) {
+            TextureRegion[] turretFrames = sheet.getAnimation("turret_shoot");
+            float shootProgress = MathUtils.clamp(
+                tower.timeSinceLastShot / tower.definition.shootAnimationDurationSeconds, 0f, 1f);
+            int frameIndex = MathUtils.clamp((int) (shootProgress * turretFrames.length), 0, turretFrames.length - 1);
+            return new TurretFrameSelection("turret_shoot", frameIndex, rotation);
+        }
+        TextureRegion[] idleFrames = sheet.getAnimation("turret_idle");
+        // Only cycle the idle sway animation during true idle spin; while actively tracking a
+        // target between shots, hold a static pose so tracking rotation reads as one continuous motion.
+        int frameIndex = state == TowerState.TRACKING
+            ? 0
+            : (int) (tower.timeSinceLastShot / TOWER_IDLE_FRAME_DURATION_SECONDS) % idleFrames.length;
+        return new TurretFrameSelection("turret_idle", frameIndex, rotation);
+    }
+
+    private TowerFrames resolveTowerFrames(TowerComponent tower, SpriteSheet sheet) {
+        TextureRegion base = sheet.getAnimation("base")[0];
+        TurretFrameSelection selection = selectTurretFrame(tower, sheet);
+        TextureRegion turret = sheet.getAnimation(selection.animationName())[selection.frameIndex()];
+        float originX = sheet.getPivotX() * GameConstants.TILE_SCALE;
+        float originY = sheet.getPivotY() * GameConstants.TILE_SCALE;
+        return new TowerFrames(base, turret, selection.rotation(), originX, originY);
+    }
+
     private void drawTowerSprite(TowerComponent tower, PositionComponent position) {
         SpriteSheet sheet = towerSpriteSheetsById.get(tower.definition.spriteSheetId);
         if (sheet == null) {
             return;
         }
+        TowerFrames frames = resolveTowerFrames(tower, sheet);
         float px = position.value.x * SCALE;
         float py = position.value.y * SCALE;
+        float turretPy = py + tower.definition.turretVerticalOffsetTiles * SCALE;
 
-        TextureRegion base = sheet.getAnimation("base")[0];
-        spriteBatch.draw(base, px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
+        spriteBatch.draw(frames.base(), px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
+        spriteBatch.draw(frames.turret(), px - frames.originX(), turretPy - frames.originY(),
+            frames.originX(), frames.originY(), SCALE, SCALE, 1f, 1f, frames.rotation());
+    }
 
-        TextureRegion[] turretFrames;
-        int turretFrameIndex;
-        float rotation = tower.turretAngleDeg - 90f + tower.definition.spriteRotationOffsetDeg;
-        TowerState state = tower.stateMachine.getCurrentState();
-        if (state == TowerState.FIRING) {
-            turretFrames = sheet.getAnimation("turret_shoot");
-            float shootProgress = MathUtils.clamp(
-                tower.timeSinceLastShot / tower.definition.shootAnimationDurationSeconds, 0f, 1f);
-            turretFrameIndex = MathUtils.clamp((int) (shootProgress * turretFrames.length), 0, turretFrames.length - 1);
-        } else {
-            turretFrames = sheet.getAnimation("turret_idle");
-            // Only cycle the idle sway animation during true idle spin; while actively tracking a
-            // target between shots, hold a static pose so tracking rotation reads as one continuous motion.
-            turretFrameIndex = state == TowerState.TRACKING
-                ? 0
-                : (int) (tower.timeSinceLastShot / TOWER_IDLE_FRAME_DURATION_SECONDS) % turretFrames.length;
+    /** Edge-detect outline pass for the selected/hovered tower's base+turret frames (see tower_outline.frag).
+     * Reads from {@link #outlineBaseFrameById}/{@link #outlineTurretIdleFramesById}/{@link #outlineTurretShootFramesById}
+     * - standalone padded-per-frame textures built once in {@link #buildTowerOutlineFrames()} - instead of the
+     * shared atlas: sprites-src frames are packed edge-to-edge with zero gap (see tower_atlas.json), so sampling
+     * a couple of texels past a frame's own rect on the shared atlas always bleeds into whatever's packed next
+     * to it there; a real 2px transparent border baked into an isolated texture per frame has no such neighbor. */
+    private void drawTowerOutline(TowerComponent tower, PositionComponent position) {
+        String sheetId = tower.definition.spriteSheetId;
+        SpriteSheet sheet = towerSpriteSheetsById.get(sheetId);
+        TextureRegion outlineBase = outlineBaseFrameById.get(sheetId);
+        if (sheet == null || outlineBase == null) {
+            return;
         }
+        TurretFrameSelection selection = selectTurretFrame(tower, sheet);
+        TextureRegion[] outlineTurretFrames = "turret_shoot".equals(selection.animationName())
+            ? outlineTurretShootFramesById.get(sheetId)
+            : outlineTurretIdleFramesById.get(sheetId);
+        TextureRegion outlineTurret = outlineTurretFrames[selection.frameIndex()];
+
         float originX = sheet.getPivotX() * GameConstants.TILE_SCALE;
         float originY = sheet.getPivotY() * GameConstants.TILE_SCALE;
+        float px = position.value.x * SCALE;
+        float py = position.value.y * SCALE;
         float turretPy = py + tower.definition.turretVerticalOffsetTiles * SCALE;
-        spriteBatch.draw(turretFrames[turretFrameIndex], px - originX, turretPy - originY, originX, originY, SCALE, SCALE, 1f, 1f, rotation);
+        float padScaled = OUTLINE_FRAME_PADDING_PX * GameConstants.TILE_SCALE;
+        float paddedSize = SCALE + 2f * padScaled;
+
+        spriteBatch.setShader(towerOutlineShader);
+        towerOutlineShader.setUniformf("u_outlineColor", TOWER_OUTLINE_COLOR);
+        // Each outline texture is its own isolated Texture (no neighboring frame packed onto it), so
+        // clamping to its full [0,1] extent is always safe - no per-frame UV math needed here anymore.
+        towerOutlineShader.setUniformf("u_frameBounds", 0f, 0f, 1f, 1f);
+
+        towerOutlineShader.setUniformf("u_texelSize", 1f / outlineBase.getTexture().getWidth(), 1f / outlineBase.getTexture().getHeight());
+        spriteBatch.draw(outlineBase, px - SCALE / 2f - padScaled, py - SCALE / 2f - padScaled, paddedSize, paddedSize);
+        // Flush now, while the base frame's texelSize uniform is still bound - SpriteBatch defers the
+        // actual GL draw call until flush()/shader-swap, so without this the turret's texelSize (set right
+        // below) would silently apply to this still-queued base quad too.
+        spriteBatch.flush();
+
+        towerOutlineShader.setUniformf("u_texelSize", 1f / outlineTurret.getTexture().getWidth(), 1f / outlineTurret.getTexture().getHeight());
+        float originXPadded = originX + padScaled;
+        float originYPadded = originY + padScaled;
+        spriteBatch.draw(outlineTurret, px - originXPadded, turretPy - originYPadded,
+            originXPadded, originYPadded, paddedSize, paddedSize, 1f, 1f, selection.rotation());
+        spriteBatch.flush();
+
+        spriteBatch.setShader(null);
+    }
+
+    /** Builds a standalone, individually-padded Texture per base/turret_idle/turret_shoot frame of every
+     * registered tower type, for {@link #drawTowerOutline(TowerComponent, PositionComponent)} to sample
+     * without risking bleed from a tightly-packed neighboring frame on the real atlas. One-time cost at
+     * screen construction; the textures are disposed alongside everything else in {@link #dispose()}. */
+    private void buildTowerOutlineFrames() {
+        for (TowerDefinition definition : towerRegistry.all()) {
+            SpriteSheet sheet = towerSpriteSheetsById.get(definition.spriteSheetId);
+            if (sheet == null || outlineBaseFrameById.containsKey(definition.spriteSheetId)) {
+                continue;
+            }
+            Pixmap sourcePixmap = new Pixmap(Gdx.files.internal("sprites-src/" + definition.spriteSheetId + ".png"));
+            outlineBaseFrameById.put(definition.spriteSheetId, buildPaddedOutlineFrame(sourcePixmap, sheet.getAnimation("base")[0]));
+            outlineTurretIdleFramesById.put(definition.spriteSheetId, buildPaddedOutlineFrames(sourcePixmap, sheet.getAnimation("turret_idle")));
+            outlineTurretShootFramesById.put(definition.spriteSheetId, buildPaddedOutlineFrames(sourcePixmap, sheet.getAnimation("turret_shoot")));
+            sourcePixmap.dispose();
+        }
+    }
+
+    private TextureRegion[] buildPaddedOutlineFrames(Pixmap sourcePixmap, TextureRegion[] frames) {
+        TextureRegion[] padded = new TextureRegion[frames.length];
+        for (int i = 0; i < frames.length; i++) {
+            padded[i] = buildPaddedOutlineFrame(sourcePixmap, frames[i]);
+        }
+        return padded;
+    }
+
+    private TextureRegion buildPaddedOutlineFrame(Pixmap sourcePixmap, TextureRegion source) {
+        int width = source.getRegionWidth();
+        int height = source.getRegionHeight();
+        int pad = OUTLINE_FRAME_PADDING_PX;
+        Pixmap padded = new Pixmap(width + pad * 2, height + pad * 2, Pixmap.Format.RGBA8888);
+        padded.setBlending(Pixmap.Blending.None);
+        padded.drawPixmap(sourcePixmap, source.getRegionX(), source.getRegionY(), width, height, pad, pad, width, height);
+        Texture texture = new Texture(padded);
+        texture.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest);
+        padded.dispose();
+        outlineFrameTextures.add(texture);
+        return new TextureRegion(texture);
+    }
+
+    /** The existing placed tower that should show a selection/hover outline: selectedTowerEntity takes
+     * priority, otherwise whatever's under the cursor - null during ghost placement mode (selectedTowerId
+     * != null), since the ghost preview already has its own green/red tint feedback. */
+    private Entity resolveHighlightedTower() {
+        if (selectedTowerId != null) {
+            return null;
+        }
+        if (selectedTowerEntity != null) {
+            return selectedTowerEntity;
+        }
+        return findTowerAt(hoverTileX, hoverTileY);
     }
 
     private void drawEnemySprite(EnemyComponent enemy, PositionComponent position) {
@@ -885,6 +1035,10 @@ public class GameScreen implements Screen {
 
     /** rgb/a fed to enemy_status_tint's v_color: rgb is the tint target, a is blend strength (0 = untinted). */
     private Color computeStatusTintColor(EnemyComponent enemy) {
+        if (enemy.hitFlashTimer > 0f) {
+            float strength = enemy.hitFlashTimer / GameConstants.ENEMY_HIT_FLASH_DURATION_SECONDS * HIT_FLASH_PEAK_STRENGTH;
+            return statusTintScratch.set(1f, 1f, 1f, strength);
+        }
         boolean slowed = false;
         boolean poisoned = false;
         for (ActiveEffect effect : enemy.activeEffects) {
@@ -1026,6 +1180,10 @@ public class GameScreen implements Screen {
         shapeRenderer.dispose();
         spriteBatch.dispose();
         enemyStatusTintShader.dispose();
+        towerOutlineShader.dispose();
+        for (Texture texture : outlineFrameTextures) {
+            texture.dispose();
+        }
         particleEffectManager.dispose();
         confirmIconTexture.dispose();
         cancelIconTexture.dispose();
