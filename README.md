@@ -1,17 +1,26 @@
 # Brajnovic TD
 
-Tower defense maze game, build towers to block enemies to reach finish line.
+Tower defense maze game — build towers to block enemies from reaching the finish line.
 
 ## Tech Stack
 
 - **Java 21**
-- **[libGDX](https://libgdx.com/)** `1.14.2` — cross-platform game framework (OpenGL rendering, Scene2D UI, Tiled map support)
-- **[Ashley](https://github.com/libgdx/ashley)** `1.7.4` — Entity Component System (added, coming in V1)
-- **[gdx-ai](https://github.com/libgdx/gdx-ai)** `1.8.2` — pathfinding, FSM, behavior trees, steering (added, coming in V1)
+- **[libGDX](https://libgdx.com/)** `1.14.2` — cross-platform game framework (OpenGL rendering, Scene2D UI, Tiled map support, GLSL shaders)
+- **[Ashley](https://github.com/libgdx/ashley)** `1.7.4` — Entity Component System
+- **[gdx-ai](https://github.com/libgdx/gdx-ai)** `1.8.2` — A* pathfinding, finite-state machines (tower/enemy states)
 - **Gradle** — build system (multi-module: `core` + `lwjgl3`)
 - **LWJGL3** — desktop backend
 - **Tiled** (`.tmx`) — level/grid editor
 - **Python 3.12+** with **[Pillow](https://python-pillow.org/)** — only needed for the sprite tooling in `tools/` (see below), not for running or building the game
+
+## Features
+
+- 4 tower types (arrow, cannon, ice, poison) with AOE damage, slow, and poison DOT status effects
+- Tower select/upgrade/sell system (levels 1–15, milestone bonuses)
+- 3 levels (grass/desert/winter) chained together, each with wave scaling and boss waves
+- Mouse and touch input modes (touch simulated on desktop, ready for a future Android build)
+- OGG sound effects, particle effects, hit flash + tower outline shaders
+- Croatian and English localization
 
 ## Project Structure
 
@@ -19,8 +28,15 @@ Tower defense maze game, build towers to block enemies to reach finish line.
 brajnovic-td/
 ├── core/          ← all game logic (platform-independent)
 ├── lwjgl3/        ← desktop launcher
-├── assets/        ← everything the game loads (maps, JSON definitions, UI skin)
-│   └── sprites-src/  ← hand-authored sprite sheets (PNG + frame-rect JSON), loaded directly at runtime
+├── assets/        ← everything the game loads
+│   ├── data/         ← towers.json, enemies.json, levels/*.json
+│   ├── maps/          ← Tiled .tmx level layouts
+│   ├── sprites-src/   ← hand-authored sprite sheets (PNG + frame-rect JSON), loaded directly at runtime
+│   ├── sounds/        ← OGG sound effects
+│   ├── i18n/          ← .properties translation bundles (hr/en)
+│   ├── shaders/       ← GLSL (status effect tint, tower outline)
+│   ├── particles/     ← particle effect assets
+│   └── ui/            ← Scene2D skin, icons
 ├── tools/         ← sprite pipeline scripts (Python)
 ├── build.gradle
 └── settings.gradle
