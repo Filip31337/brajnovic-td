@@ -35,19 +35,20 @@ public class ProjectileComponent implements Component, Poolable {
     public String impactSoundId;
     public String impactParticleId;
 
-    /** Copies the shot-independent (aoe/slow/poison/speed/impact/sprite) stats straight off the firing
-     * tower's definition, so this signature doesn't grow with every new on-hit effect type. */
+    /** damage/slowRatio/poisonDamagePerSecond are level-scaled by the caller (see TowerUpgrade); everything
+     * else here is shot-independent and copied straight off the firing tower's definition, so this signature
+     * doesn't grow with every new on-hit effect type. */
     public void init(Vector2 startPosition, Vector2 targetPosition, Entity target, int targetSpawnId,
-                      float damage, TowerDefinition definition) {
+                      float damage, float slowRatio, float poisonDamagePerSecond, TowerDefinition definition) {
         this.startPosition.set(startPosition);
         this.targetPosition.set(targetPosition);
         this.target = target;
         this.targetSpawnId = targetSpawnId;
         this.damage = damage;
         this.aoeRadiusTiles = definition.aoeRadiusTiles;
-        this.slowRatio = definition.slowRatio;
+        this.slowRatio = slowRatio;
         this.slowDurationSeconds = definition.slowDurationSeconds;
-        this.poisonDamagePerSecond = definition.poisonDamagePerSecond;
+        this.poisonDamagePerSecond = poisonDamagePerSecond;
         this.poisonDurationSeconds = definition.poisonDurationSeconds;
         this.totalTime = Math.max(0.01f,
             this.startPosition.dst(this.targetPosition) / definition.projectileSpeedTilesPerSec);

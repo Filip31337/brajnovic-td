@@ -173,6 +173,9 @@ public class GameScreen implements Screen {
     private Label towerInfoDamageLabel;
     private Label towerInfoRangeLabel;
     private Label towerInfoFireRateLabel;
+    private Label towerInfoPoisonLabel;
+    private Label towerInfoSlowLabel;
+    private Table towerInfoEffectsTable;
     private Label towerInfoNextLevelLabel;
     private TextButton towerUpgradeButton;
     private TextButton towerSellButton;
@@ -527,11 +530,18 @@ public class GameScreen implements Screen {
         towerInfoDamageLabel = new Label("", skin);
         towerInfoRangeLabel = new Label("", skin);
         towerInfoFireRateLabel = new Label("", skin);
+        towerInfoPoisonLabel = new Label("", skin);
+        towerInfoSlowLabel = new Label("", skin);
+        towerInfoEffectsTable = new Table();
         towerInfoNextLevelLabel = new Label("", skin);
         towerInfoWindow.add(towerInfoLevelLabel).left().pad(4).row();
         towerInfoWindow.add(towerInfoDamageLabel).left().pad(4).row();
         towerInfoWindow.add(towerInfoRangeLabel).left().pad(4).row();
         towerInfoWindow.add(towerInfoFireRateLabel).left().pad(4).row();
+        // Rebuilt per updateTowerInfoWindow() call instead of adding both labels up front and toggling
+        // setVisible() - an invisible Cell still reserves its layout space (same lesson as overlayButtonRow),
+        // which would leave a blank gap for towers without a poison/slow mechanic.
+        towerInfoWindow.add(towerInfoEffectsTable).left().row();
         towerInfoWindow.add(towerInfoNextLevelLabel).left().pad(4).row();
 
         towerUpgradeButton = new TextButton("", skin);
@@ -697,11 +707,30 @@ public class GameScreen implements Screen {
         towerInfoFireRateLabel.setText(Localization.format("tower.info.fireRate",
             TowerUpgrade.fireRateForLevel(definition, tower.level)));
 
+        towerInfoEffectsTable.clearChildren();
+        if (definition.poisonDamagePerSecond > 0f) {
+            towerInfoPoisonLabel.setText(Localization.format("tower.info.poison",
+                TowerUpgrade.poisonDamagePerSecondForLevel(definition, tower.level)));
+            towerInfoEffectsTable.add(towerInfoPoisonLabel).left().pad(4).row();
+        }
+        if (definition.slowRatio > 0f) {
+            towerInfoSlowLabel.setText(Localization.format("tower.info.slow",
+                Math.round(TowerUpgrade.slowRatioForLevel(definition, tower.level) * 100)));
+            towerInfoEffectsTable.add(towerInfoSlowLabel).left().pad(4).row();
+        }
+
         if (TowerUpgrade.canUpgrade(tower.level)) {
             int upgradeCost = TowerUpgrade.upgradeCost(definition);
             towerUpgradeButton.setText(Localization.format("tower.info.upgrade", upgradeCost));
             towerUpgradeButton.setDisabled(economy.getGold() < upgradeCost);
-            towerInfoNextLevelLabel.setText(Localization.get(nextLevelPreviewKey(tower.level + 1)));
+            String nextLevelPreview = Localization.get(nextLevelPreviewKey(tower.level + 1));
+            if (definition.poisonDamagePerSecond > 0f) {
+                nextLevelPreview += Localization.get("tower.info.nextLevel.poisonSuffix");
+            }
+            if (definition.slowRatio > 0f) {
+                nextLevelPreview += Localization.get("tower.info.nextLevel.slowSuffix");
+            }
+            towerInfoNextLevelLabel.setText(nextLevelPreview);
         } else {
             towerUpgradeButton.setText(Localization.get("tower.info.upgrade.maxed"));
             towerUpgradeButton.setDisabled(true);

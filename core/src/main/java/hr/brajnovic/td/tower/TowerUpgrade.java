@@ -59,6 +59,21 @@ public final class TowerUpgrade {
         return definition.fireRatePerSecond * milestoneBonus;
     }
 
+    /** Poison DOT is fundamentally a damage stat, so it grows on the same curve/milestone as direct damage.
+     * 0 for towers without poisonDamagePerSecond (definition.poisonDamagePerSecond is 0, so is the result). */
+    public static float poisonDamagePerSecondForLevel(TowerDefinition definition, int level) {
+        float growth = 1f + PER_LEVEL_DAMAGE_GROWTH * (level - 1);
+        float milestoneBonus = level >= DAMAGE_MILESTONE_LEVEL ? 1f + MILESTONE_BONUS_RATIO : 1f;
+        return definition.poisonDamagePerSecond * growth * milestoneBonus;
+    }
+
+    /** Slow ratio grows on the same per-level rate as damage but has no milestone bonus of its own (the
+     * three milestones are damage/range/fire-rate specific). 0 for towers without a slow effect. */
+    public static float slowRatioForLevel(TowerDefinition definition, int level) {
+        float growth = 1f + PER_LEVEL_DAMAGE_GROWTH * (level - 1);
+        return definition.slowRatio * growth;
+    }
+
     public static int sellRefund(int totalInvested) {
         return Math.round(totalInvested * SELL_REFUND_RATIO);
     }

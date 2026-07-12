@@ -352,11 +352,6 @@ com.badlogic.gdx.scenes.scene2d.ui.Window$WindowStyle: {
         default: { up: buttonUp, over: buttonOver, down: buttonDown, disabled: buttonDisabled },
         toggle: { up: buttonUp, over: buttonOver, down: buttonDown, checked: buttonChecked, checkedOver: buttonCheckedOver, disabled: buttonDisabled }
     },
-    com.badlogic.gdx.scenes.scene2d.ui.CheckBox$CheckBoxStyle: {
-        default: { checkboxOn: checkBoxOn, checkboxOff: checkBoxOff, checkboxOver: checkBoxOver, checkboxOnDisabled: checkBoxOnDisabled,
-            checkboxOffDisabled: checkBoxOffDisabled, font: default, fontColor: font, overFontColor: fontOver, downFontColor: fontDown,
-            checkedFontColor: fontChecked, checkedOverFontColor: fontCheckedOver, disabledFontColor: fontDisabled, pressedOffsetY: -1, pressedOffsetX: 1 }
-    },
     com.badlogic.gdx.scenes.scene2d.ui.ImageButton$ImageButtonStyle: {
         default: { up: buttonUp, over: buttonOver, down: buttonDown, disabled: buttonDisabled, imageUp: icon }
     },
