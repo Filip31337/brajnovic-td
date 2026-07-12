@@ -5,9 +5,11 @@ import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.math.GridPoint2;
 import com.badlogic.gdx.math.MathUtils;
+import hr.brajnovic.td.GameConstants;
 import hr.brajnovic.td.ecs.Mappers;
 import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.economy.Economy;
+import hr.brajnovic.td.fx.ParticleEffectManager;
 
 /** Moves enemies along their precomputed path and removes them on death or reaching the goal. */
 public class EnemyLifecycleSystem extends IteratingSystem {
@@ -16,10 +18,12 @@ public class EnemyLifecycleSystem extends IteratingSystem {
     private static final String[] FACING_DIRECTIONS = {"E", "NE", "N", "NW", "W", "SW", "S", "SE"};
 
     private final Economy economy;
+    private final ParticleEffectManager particleEffectManager;
 
-    public EnemyLifecycleSystem(Economy economy) {
+    public EnemyLifecycleSystem(Economy economy, ParticleEffectManager particleEffectManager) {
         super(Family.all(EnemyComponent.class, PositionComponent.class).get(), 0);
         this.economy = economy;
+        this.particleEffectManager = particleEffectManager;
     }
 
     @Override
@@ -36,6 +40,9 @@ public class EnemyLifecycleSystem extends IteratingSystem {
         }
         if (enemy.hp <= 0f) {
             economy.addGold(enemy.definition.goldReward);
+            particleEffectManager.spawn(enemy.definition.deathParticleId,
+                position.value.x * GameConstants.SCALED_TILE_SIZE_PX,
+                position.value.y * GameConstants.SCALED_TILE_SIZE_PX);
             enemy.stateMachine.changeState(EnemyState.DYING);
             return;
         }

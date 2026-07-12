@@ -54,6 +54,7 @@ import hr.brajnovic.td.enemy.EnemyLifecycleSystem;
 import hr.brajnovic.td.enemy.EnemyRegistry;
 import hr.brajnovic.td.enemy.EnemyState;
 import hr.brajnovic.td.enemy.EnemyStatusEffectSystem;
+import hr.brajnovic.td.fx.ParticleEffectManager;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
@@ -116,6 +117,7 @@ public class GameScreen implements Screen {
     private final ShapeRenderer shapeRenderer;
     private final SpriteBatch spriteBatch;
     private final ShaderProgram enemyStatusTintShader;
+    private final ParticleEffectManager particleEffectManager;
     private final Texture confirmIconTexture;
     private final Texture cancelIconTexture;
     private final Texture placementPanelTexture;
@@ -175,11 +177,12 @@ public class GameScreen implements Screen {
         mapRenderer = new OrthogonalTiledMapRenderer(tiledMap, GameConstants.TILE_SCALE);
 
         economy = new Economy(level.startingGold, level.startingLives);
+        particleEffectManager = new ParticleEffectManager();
         engine = new PooledEngine();
         engine.addSystem(new EnemyStatusEffectSystem());
-        engine.addSystem(new EnemyLifecycleSystem(economy));
+        engine.addSystem(new EnemyLifecycleSystem(economy, particleEffectManager));
         engine.addSystem(new TowerTargetingSystem());
-        engine.addSystem(new ProjectileSystem());
+        engine.addSystem(new ProjectileSystem(particleEffectManager));
         waveController = new WaveController(level, enemyRegistry, gridMap, economy, engine);
 
         mapCamera = new OrthographicCamera();
@@ -589,6 +592,8 @@ public class GameScreen implements Screen {
         if (economy.trySpend(cost)) {
             tower.level++;
             tower.totalInvested += cost;
+            Vector2 position = Mappers.POSITION.get(selectedTowerEntity).value;
+            particleEffectManager.spawn("tower_upgrade", position.x * SCALE, position.y * SCALE);
         }
     }
 
@@ -755,7 +760,7 @@ public class GameScreen implements Screen {
         mapCamera.update();
         mapRenderer.setView(mapCamera);
         mapRenderer.render();
-        renderEntities();
+        renderEntities(delta);
 
         updateHud();
         hudStage.act(delta);
@@ -769,7 +774,7 @@ public class GameScreen implements Screen {
         overlayStage.draw();
     }
 
-    private void renderEntities() {
+    private void renderEntities(float delta) {
         Gdx.gl.glEnable(GL20.GL_BLEND);
 
         ImmutableArray<Entity> towerEntities = engine.getEntitiesFor(TOWER_FAMILY);
@@ -795,6 +800,7 @@ public class GameScreen implements Screen {
         if (selectedTowerId != null && gridMap.isInBounds(hoverTileX, hoverTileY)) {
             drawGhostSprite();
         }
+        particleEffectManager.renderAndPrune(spriteBatch, delta);
         spriteBatch.end();
 
         shapeRenderer.setProjectionMatrix(mapCamera.combined);
@@ -1020,6 +1026,7 @@ public class GameScreen implements Screen {
         shapeRenderer.dispose();
         spriteBatch.dispose();
         enemyStatusTintShader.dispose();
+        particleEffectManager.dispose();
         confirmIconTexture.dispose();
         cancelIconTexture.dispose();
         placementPanelTexture.dispose();

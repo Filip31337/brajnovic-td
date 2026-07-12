@@ -4,19 +4,24 @@ import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.math.Vector2;
+import hr.brajnovic.td.GameConstants;
 import hr.brajnovic.td.ecs.Mappers;
 import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.enemy.ActiveEffect;
 import hr.brajnovic.td.enemy.EffectType;
 import hr.brajnovic.td.enemy.EnemyComponent;
+import hr.brajnovic.td.fx.ParticleEffectManager;
 import hr.brajnovic.td.sound.SoundManager;
 
 public class ProjectileSystem extends IteratingSystem {
 
     private static final Family ENEMY_FAMILY = Family.all(EnemyComponent.class, PositionComponent.class).get();
 
-    public ProjectileSystem() {
+    private final ParticleEffectManager particleEffectManager;
+
+    public ProjectileSystem(ParticleEffectManager particleEffectManager) {
         super(Family.all(ProjectileComponent.class, PositionComponent.class).get(), 2);
+        this.particleEffectManager = particleEffectManager;
     }
 
     @Override
@@ -41,6 +46,9 @@ public class ProjectileSystem extends IteratingSystem {
                 applySingleTargetDamage(projectile);
             }
             SoundManager.play(projectile.impactSoundId);
+            particleEffectManager.spawn(projectile.impactParticleId,
+                projectile.targetPosition.x * GameConstants.SCALED_TILE_SIZE_PX,
+                projectile.targetPosition.y * GameConstants.SCALED_TILE_SIZE_PX);
             projectile.impactTimer = 0f;
         }
 

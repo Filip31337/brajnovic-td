@@ -33,6 +33,7 @@ public class ProjectileComponent implements Component, Poolable {
     public float impactTimer = -1f;
     public String spriteSheetId;
     public String impactSoundId;
+    public String impactParticleId;
 
     /** Copies the shot-independent (aoe/slow/poison/speed/impact/sprite) stats straight off the firing
      * tower's definition, so this signature doesn't grow with every new on-hit effect type. */
@@ -59,6 +60,7 @@ public class ProjectileComponent implements Component, Poolable {
         this.impactTimer = -1f;
         this.spriteSheetId = definition.spriteSheetId;
         this.impactSoundId = definition.impactSoundId;
+        this.impactParticleId = definition.impactParticleId;
     }
 
     @Override
@@ -80,5 +82,6 @@ public class ProjectileComponent implements Component, Poolable {
         impactTimer = -1f;
         spriteSheetId = null;
         impactSoundId = null;
+        impactParticleId = null;
     }
 }

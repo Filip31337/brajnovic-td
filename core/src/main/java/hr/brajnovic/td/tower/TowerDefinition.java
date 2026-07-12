@@ -31,6 +31,8 @@ public class TowerDefinition {
     public String shootSoundId;
     /** Sound ID played when this tower's projectile lands a hit. */
     public String impactSoundId;
+    /** Particle effect ID (matches an id built by {@link hr.brajnovic.td.fx.ParticleEffectManager}) spawned on impact. */
+    public String impactParticleId;
 
     /** Base name of the sprites-src sheet (PNG + JSON) under assets/sprites-src/, e.g. "tower_atlas". */
     public String spriteSheetId;
