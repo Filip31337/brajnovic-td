@@ -35,21 +35,24 @@ public class ParticleEffectManager implements Disposable {
     private static final ObjectMap<String, BurstSpec> SPECS = new ObjectMap<>();
 
     static {
-        // Physical sparks: tight, fast, additive glow.
-        SPECS.put("impact_arrow", new BurstSpec(10, 150f, 150f, 300f, 80f, 160f, 10f, 2f,
+        // Physical sparks: tight, fast, additive glow. Counts doubled and sizes/velocity boosted
+        // (2026-07-12 follow-up) - the original values were nearly invisible, especially under the
+        // opaque projectile_impact sprite animation, which needs particles bigger/faster than its
+        // own ~SCALE(64px) footprint to read as a distinct burst rather than being masked by it.
+        SPECS.put("impact_arrow", new BurstSpec(20, 150f, 150f, 300f, 100f, 200f, 18f, 3f,
             0f, true, new Color(1f, 0.95f, 0.6f, 1f)));
-        SPECS.put("impact_cannon", new BurstSpec(16, 200f, 250f, 450f, 60f, 140f, 16f, 4f,
+        SPECS.put("impact_cannon", new BurstSpec(32, 200f, 250f, 450f, 90f, 190f, 28f, 6f,
             0f, true, new Color(1f, 0.55f, 0.15f, 1f)));
-        SPECS.put("impact_ice", new BurstSpec(12, 180f, 200f, 380f, 70f, 150f, 8f, 2f,
+        SPECS.put("impact_ice", new BurstSpec(24, 180f, 200f, 380f, 100f, 200f, 15f, 3f,
             0f, true, new Color(0.65f, 0.85f, 1f, 1f)));
         // Poison bubbles drift upward slowly instead of blowing out with additive glow.
-        SPECS.put("impact_poison", new BurstSpec(10, 200f, 300f, 550f, 30f, 70f, 10f, 4f,
+        SPECS.put("impact_poison", new BurstSpec(20, 200f, 300f, 550f, 45f, 95f, 18f, 6f,
             25f, false, new Color(0.45f, 0.9f, 0.35f, 1f)));
         // Enemy death: dark burst that falls with gravity, solid (non-additive) so it doesn't blow out white.
-        SPECS.put("enemy_death", new BurstSpec(14, 180f, 250f, 450f, 50f, 130f, 10f, 3f,
+        SPECS.put("enemy_death", new BurstSpec(28, 180f, 250f, 450f, 80f, 180f, 18f, 5f,
             -60f, false, new Color(0.55f, 0.12f, 0.08f, 1f)));
         // Tower upgrade: gold sparkle rising slightly, additive glow.
-        SPECS.put("tower_upgrade", new BurstSpec(14, 250f, 350f, 600f, 40f, 90f, 8f, 2f,
+        SPECS.put("tower_upgrade", new BurstSpec(28, 250f, 350f, 600f, 65f, 130f, 15f, 3f,
             35f, true, new Color(1f, 0.85f, 0.25f, 1f)));
     }
 
