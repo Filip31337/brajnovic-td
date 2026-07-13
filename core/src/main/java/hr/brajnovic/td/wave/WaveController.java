@@ -8,10 +8,13 @@ import com.badlogic.gdx.math.GridPoint2;
 import com.badlogic.gdx.math.MathUtils;
 import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.economy.Economy;
+import hr.brajnovic.td.enemy.BossBehaviorTreeFactory;
+import hr.brajnovic.td.enemy.BossComponent;
 import hr.brajnovic.td.enemy.EnemyComponent;
 import hr.brajnovic.td.enemy.EnemyDefinition;
 import hr.brajnovic.td.enemy.EnemyRegistry;
 import hr.brajnovic.td.enemy.EnemyState;
+import hr.brajnovic.td.fx.ParticleEffectManager;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
 import hr.brajnovic.td.pathfinding.AStarPathfinder;
@@ -31,6 +34,7 @@ public class WaveController {
     private final GridMap gridMap;
     private final Economy economy;
     private final PooledEngine engine;
+    private final ParticleEffectManager particleEffectManager;
 
     private GamePhase phase = GamePhase.BUILD;
     private int currentWaveNumber = 0;
@@ -39,12 +43,14 @@ public class WaveController {
     private float buildPhaseTimer = BUILD_PHASE_DURATION_SECONDS;
     private int nextEnemySpawnId = 0;
 
-    public WaveController(LevelDefinition level, EnemyRegistry enemyRegistry, GridMap gridMap, Economy economy, PooledEngine engine) {
+    public WaveController(LevelDefinition level, EnemyRegistry enemyRegistry, GridMap gridMap, Economy economy,
+                           PooledEngine engine, ParticleEffectManager particleEffectManager) {
         this.level = level;
         this.enemyRegistry = enemyRegistry;
         this.gridMap = gridMap;
         this.economy = economy;
         this.engine = engine;
+        this.particleEffectManager = particleEffectManager;
     }
 
     public GamePhase getPhase() {
@@ -167,6 +173,14 @@ public class WaveController {
         enemyComponent.stateMachine = new DefaultStateMachine<>(entity, EnemyState.WALKING);
         entity.add(enemyComponent);
         entity.add(positionComponent);
+
+        if (definition.healIntervalSeconds > 0f) {
+            BossComponent bossComponent = engine.createComponent(BossComponent.class);
+            bossComponent.healCooldownTimer = definition.healIntervalSeconds;
+            bossComponent.behaviorTree = BossBehaviorTreeFactory.build(entity, particleEffectManager);
+            entity.add(bossComponent);
+        }
+
         engine.addEntity(entity);
     }
 

@@ -52,6 +52,11 @@ public class EnemyLifecycleSystem extends IteratingSystem {
             return;
         }
 
+        BossComponent boss = Mappers.BOSS.get(entity);
+        if (boss != null && boss.healing) {
+            return;
+        }
+
         enemy.animationTime += deltaTime;
 
         GridPoint2 waypoint = enemy.path.get(enemy.waypointIndex);

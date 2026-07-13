@@ -22,4 +22,13 @@ public class EnemyDefinition {
 
     /** Prepared for V2 elemental towers: damageType -> multiplier. Empty while damage is flat. */
     public ObjectMap<String, Float> resistances;
+
+    /** Boss self-heal ability (see BossComponent/BossBehaviorTreeFactory). 0 means this enemy has no heal ability. */
+    public float healIntervalSeconds = 0f;
+    public float healPercentOfMaxHp = 0f;
+    /** How long the boss stands still performing the heal before it takes effect. */
+    public float healDurationSeconds = 0f;
+    /** Particle effect ID spawned when the heal completes; sound ID played by SoundManager, no-op if null/unknown. */
+    public String healParticleId;
+    public String healSoundId;
 }

@@ -49,6 +49,7 @@ import hr.brajnovic.td.ecs.Mappers;
 import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.economy.Economy;
 import hr.brajnovic.td.enemy.ActiveEffect;
+import hr.brajnovic.td.enemy.BossBehaviorSystem;
 import hr.brajnovic.td.enemy.EffectType;
 import hr.brajnovic.td.enemy.EnemyComponent;
 import hr.brajnovic.td.enemy.EnemyLifecycleSystem;
@@ -93,10 +94,14 @@ public class GameScreen implements Screen {
     // rgb = tint target color for enemy_status_tint shader; a is unused here (blend strength is set per-enemy).
     private static final Color ICE_TINT_COLOR = new Color(0.6f, 0.85f, 1f, 1f);
     private static final Color POISON_TINT_COLOR = new Color(0.45f, 0.9f, 0.35f, 1f);
+    private static final Color BOSS_TINT_COLOR = new Color(0.9f, 0.25f, 0.2f, 1f);
     private static final float STATUS_TINT_STRENGTH = 0.35f;
     private static final float COMBINED_STATUS_TINT_STRENGTH = 0.45f;
     private static final Color NO_STATUS_TINT = new Color(1f, 1f, 1f, 0f);
     private static final float HIT_FLASH_PEAK_STRENGTH = 0.375f;
+
+    // No boss art yet - reused orc_atlas rendered bigger + permanently red-tinted (see computeStatusTintColor).
+    private static final float BOSS_VISUAL_SCALE = 1.6f;
 
     // Real edge-detect outline shader for the selected/hovered tower (see tower_outline.frag): a single
     // shader pass reads the sprite's own silhouette, so it stays a clean ring even for a rotated turret -
@@ -199,11 +204,12 @@ public class GameScreen implements Screen {
         economy = new Economy(level.startingGold, level.startingLives);
         particleEffectManager = new ParticleEffectManager();
         engine = new PooledEngine();
+        engine.addSystem(new BossBehaviorSystem());
         engine.addSystem(new EnemyStatusEffectSystem());
         engine.addSystem(new EnemyLifecycleSystem(economy, particleEffectManager));
         engine.addSystem(new TowerTargetingSystem());
         engine.addSystem(new ProjectileSystem(particleEffectManager));
-        waveController = new WaveController(level, enemyRegistry, gridMap, economy, engine);
+        waveController = new WaveController(level, enemyRegistry, gridMap, economy, engine, particleEffectManager);
 
         mapCamera = new OrthographicCamera();
         mapViewport = new ExtendViewport(
@@ -847,8 +853,9 @@ public class GameScreen implements Screen {
         spriteBatch.setShader(enemyStatusTintShader);
         for (Entity entity : enemyEntities) {
             EnemyComponent enemy = Mappers.ENEMY.get(entity);
-            spriteBatch.setColor(computeStatusTintColor(enemy));
-            drawEnemySprite(enemy, Mappers.POSITION.get(entity));
+            boolean boss = Mappers.BOSS.has(entity);
+            spriteBatch.setColor(computeStatusTintColor(enemy, boss));
+            drawEnemySprite(enemy, Mappers.POSITION.get(entity), boss);
         }
         spriteBatch.setColor(Color.WHITE);
         spriteBatch.setShader(null);
@@ -865,7 +872,7 @@ public class GameScreen implements Screen {
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         for (Entity entity : enemyEntities) {
-            drawEnemyHpBar(Mappers.ENEMY.get(entity), Mappers.POSITION.get(entity));
+            drawEnemyHpBar(Mappers.ENEMY.get(entity), Mappers.POSITION.get(entity), Mappers.BOSS.has(entity));
         }
         shapeRenderer.end();
 
@@ -1045,7 +1052,7 @@ public class GameScreen implements Screen {
         return findTowerAt(hoverTileX, hoverTileY);
     }
 
-    private void drawEnemySprite(EnemyComponent enemy, PositionComponent position) {
+    private void drawEnemySprite(EnemyComponent enemy, PositionComponent position, boolean boss) {
         SpriteSheet sheet = enemySpriteSheetsById.get(enemy.definition.spriteSheetId);
         if (sheet == null) {
             return;
@@ -1059,11 +1066,14 @@ public class GameScreen implements Screen {
 
         float px = position.value.x * SCALE;
         float py = position.value.y * SCALE;
-        spriteBatch.draw(frame, px - SCALE / 2f, py - SCALE / 2f, SCALE, SCALE);
+        float size = boss ? SCALE * BOSS_VISUAL_SCALE : SCALE;
+        spriteBatch.draw(frame, px - size / 2f, py - size / 2f, size, size);
     }
 
-    /** rgb/a fed to enemy_status_tint's v_color: rgb is the tint target, a is blend strength (0 = untinted). */
-    private Color computeStatusTintColor(EnemyComponent enemy) {
+    /** rgb/a fed to enemy_status_tint's v_color: rgb is the tint target, a is blend strength (0 = untinted).
+     * Slow/poison/boss are averaged together when more than one is active at once, same as the original
+     * slow+poison combo - this generalizes to a third contributor instead of hand-listing every combination. */
+    private Color computeStatusTintColor(EnemyComponent enemy, boolean boss) {
         if (enemy.hitFlashTimer > 0f) {
             float strength = enemy.hitFlashTimer / GameConstants.ENEMY_HIT_FLASH_DURATION_SECONDS * HIT_FLASH_PEAK_STRENGTH;
             return statusTintScratch.set(1f, 1f, 1f, strength);
@@ -1077,32 +1087,35 @@ public class GameScreen implements Screen {
                 poisoned = true;
             }
         }
-        if (slowed && poisoned) {
-            return statusTintScratch.set(
-                (ICE_TINT_COLOR.r + POISON_TINT_COLOR.r) / 2f,
-                (ICE_TINT_COLOR.g + POISON_TINT_COLOR.g) / 2f,
-                (ICE_TINT_COLOR.b + POISON_TINT_COLOR.b) / 2f,
-                COMBINED_STATUS_TINT_STRENGTH);
+        int activeCount = (slowed ? 1 : 0) + (poisoned ? 1 : 0) + (boss ? 1 : 0);
+        if (activeCount == 0) {
+            return NO_STATUS_TINT;
         }
+        float r = 0f, g = 0f, b = 0f;
         if (slowed) {
-            return statusTintScratch.set(ICE_TINT_COLOR.r, ICE_TINT_COLOR.g, ICE_TINT_COLOR.b, STATUS_TINT_STRENGTH);
+            r += ICE_TINT_COLOR.r; g += ICE_TINT_COLOR.g; b += ICE_TINT_COLOR.b;
         }
         if (poisoned) {
-            return statusTintScratch.set(POISON_TINT_COLOR.r, POISON_TINT_COLOR.g, POISON_TINT_COLOR.b, STATUS_TINT_STRENGTH);
+            r += POISON_TINT_COLOR.r; g += POISON_TINT_COLOR.g; b += POISON_TINT_COLOR.b;
         }
-        return NO_STATUS_TINT;
+        if (boss) {
+            r += BOSS_TINT_COLOR.r; g += BOSS_TINT_COLOR.g; b += BOSS_TINT_COLOR.b;
+        }
+        float strength = activeCount >= 2 ? COMBINED_STATUS_TINT_STRENGTH : STATUS_TINT_STRENGTH;
+        return statusTintScratch.set(r / activeCount, g / activeCount, b / activeCount, strength);
     }
 
-    private void drawEnemyHpBar(EnemyComponent enemy, PositionComponent position) {
+    private void drawEnemyHpBar(EnemyComponent enemy, PositionComponent position, boolean boss) {
         if (enemy.stateMachine.getCurrentState() == EnemyState.DYING) {
             return;
         }
         float px = position.value.x * SCALE;
         float py = position.value.y * SCALE;
+        float visualScale = boss ? BOSS_VISUAL_SCALE : 1f;
 
         float hpRatio = Math.max(0f, enemy.hp / enemy.maxHp);
-        float barWidth = SCALE * 0.6f;
-        float barY = py + SCALE * 0.4f;
+        float barWidth = SCALE * 0.6f * visualScale;
+        float barY = py + SCALE * 0.4f * visualScale;
         shapeRenderer.setColor(Color.BLACK);
         shapeRenderer.rect(px - barWidth / 2f, barY, barWidth, 4f);
         shapeRenderer.setColor(Color.LIME);

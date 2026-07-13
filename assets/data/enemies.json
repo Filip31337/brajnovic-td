@@ -11,5 +11,23 @@
     "deathSoundId": "zombie_death",
     "deathParticleId": "enemy_death",
     "resistances": {}
+  },
+  {
+    "id": "boss_orc",
+    "name": "Orc Chieftain",
+    "maxHp": 50,
+    "speedTilesPerSec": 1.00,
+    "goldReward": 5,
+    "livesDamage": 1,
+    "deathAnimationDurationSeconds": 0.48,
+    "spriteSheetId": "orc_atlas",
+    "deathSoundId": "zombie_death",
+    "deathParticleId": "enemy_death",
+    "resistances": {},
+    "healIntervalSeconds": 8.0,
+    "healPercentOfMaxHp": 0.20,
+    "healDurationSeconds": 1.0,
+    "healParticleId": "heal",
+    "healSoundId": "heal"
   }
 ]

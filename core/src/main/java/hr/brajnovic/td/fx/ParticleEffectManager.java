@@ -28,8 +28,15 @@ public class ParticleEffectManager implements Disposable {
     private record BurstSpec(
         int particleCount, float durationMs, float lifeMinMs, float lifeMaxMs,
         float velocityMin, float velocityMax, float startSizePx, float endSizePx,
-        float gravity, boolean additive, Color color
+        float gravity, boolean additive, Color color, float angleMinDeg, float angleMaxDeg, boolean cross
     ) {
+        /** Existing radial-burst effects: full 360-degree spread, round dot sprite. */
+        BurstSpec(int particleCount, float durationMs, float lifeMinMs, float lifeMaxMs,
+                  float velocityMin, float velocityMax, float startSizePx, float endSizePx,
+                  float gravity, boolean additive, Color color) {
+            this(particleCount, durationMs, lifeMinMs, lifeMaxMs, velocityMin, velocityMax,
+                startSizePx, endSizePx, gravity, additive, color, 0f, 360f, false);
+        }
     }
 
     private static final ObjectMap<String, BurstSpec> SPECS = new ObjectMap<>();
@@ -54,10 +61,16 @@ public class ParticleEffectManager implements Disposable {
         // Tower upgrade: gold sparkle rising slightly, additive glow.
         SPECS.put("tower_upgrade", new BurstSpec(28, 250f, 350f, 600f, 65f, 130f, 15f, 3f,
             35f, true, new Color(1f, 0.85f, 0.25f, 1f)));
+        // Generic heal: solid (non-additive) red crosses trickling upward in a narrow cone (angle
+        // 70-110deg, 90=straight up) instead of exploding outward - reads as "healing" rather than a hit.
+        SPECS.put("heal", new BurstSpec(6, 900f, 500f, 800f, 30f, 60f, 42f, 30f,
+            25f, false, new Color(0.85f, 0.15f, 0.15f, 1f), 70f, 110f, true));
     }
 
     private final Texture dotTexture;
     private final Sprite dotSprite;
+    private final Texture crossTexture;
+    private final Sprite crossSprite;
     private final ObjectMap<String, ParticleEffectPool> pools = new ObjectMap<>();
     private final Array<PooledEffect> activeEffects = new Array<>();
 
@@ -65,6 +78,10 @@ public class ParticleEffectManager implements Disposable {
         dotTexture = new Texture(Gdx.files.internal("particles/particle_dot.png"));
         dotTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         dotSprite = new Sprite(dotTexture);
+
+        crossTexture = new Texture(Gdx.files.internal("particles/particle_cross.png"));
+        crossTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
+        crossSprite = new Sprite(crossTexture);
 
         for (ObjectMap.Entry<String, BurstSpec> entry : SPECS) {
             ParticleEffect template = new ParticleEffect();
@@ -77,7 +94,7 @@ public class ParticleEffectManager implements Disposable {
         ParticleEmitter emitter = new ParticleEmitter();
         emitter.setMaxParticleCount(spec.particleCount());
         emitter.setMinParticleCount(spec.particleCount());
-        emitter.setSprites(Array.with(dotSprite));
+        emitter.setSprites(Array.with(spec.cross() ? crossSprite : dotSprite));
         emitter.setAdditive(spec.additive());
 
         emitter.getDuration().setLow(spec.durationMs());
@@ -87,8 +104,8 @@ public class ParticleEffectManager implements Disposable {
         // getLife() is typed ScaledNumericValue but the underlying field is IndependentScaledNumericValue.
         ((IndependentScaledNumericValue) emitter.getLife()).setIndependent(true);
 
-        emitter.getAngle().setLow(0f, 360f);
-        emitter.getAngle().setHigh(0f, 360f);
+        emitter.getAngle().setLow(spec.angleMinDeg(), spec.angleMaxDeg());
+        emitter.getAngle().setHigh(spec.angleMinDeg(), spec.angleMaxDeg());
 
         emitter.getVelocity().setActive(true);
         emitter.getVelocity().setLow(spec.velocityMin(), spec.velocityMax());
@@ -147,5 +164,6 @@ public class ParticleEffectManager implements Disposable {
     @Override
     public void dispose() {
         dotTexture.dispose();
+        crossTexture.dispose();
     }
 }
