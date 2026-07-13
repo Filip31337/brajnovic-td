@@ -25,9 +25,11 @@ import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
+import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -39,6 +41,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.NinePatchDrawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ExtendViewport;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
@@ -103,6 +106,15 @@ public class GameScreen implements Screen {
     // No boss art yet - reused orc_atlas rendered bigger + permanently red-tinted (see computeStatusTintColor).
     private static final float BOSS_VISUAL_SCALE = 1.6f;
 
+    private static final float OVERLAY_FADE_IN_SECONDS = 0.4f;
+    private static final float OVERLAY_SCALE_IN_START = 0.85f;
+    private static final float PANEL_FADE_IN_SECONDS = 0.2f;
+    private static final float HUD_PUNCH_SCALE = 1.35f;
+    private static final float HUD_PUNCH_DURATION_SECONDS = 0.25f;
+    private static final float WAVE_BANNER_FADE_IN_SECONDS = 0.3f;
+    private static final float WAVE_BANNER_HOLD_SECONDS = 1f;
+    private static final float WAVE_BANNER_FADE_OUT_SECONDS = 0.5f;
+
     // Real edge-detect outline shader for the selected/hovered tower (see tower_outline.frag): a single
     // shader pass reads the sprite's own silhouette, so it stays a clean ring even for a rotated turret -
     // the earlier multi-draw offset trick fanned rotated art out into visible ghost copies instead.
@@ -154,10 +166,14 @@ public class GameScreen implements Screen {
 
     private Label goldLabel;
     private Label livesLabel;
+    private int lastDisplayedGold = Integer.MIN_VALUE;
+    private int lastDisplayedLives = Integer.MIN_VALUE;
     private Label waveLabel;
     private Label nextWaveTimerLabel;
     private TextButton startWaveButton;
     private Window placementConfirmWindow;
+    private Label waveBannerLabel;
+    private GamePhase lastPhase = GamePhase.BUILD;
     private final Map<String, TextButton> towerButtonsById = new LinkedHashMap<>();
     private TextButton pauseButton;
     private TextButton normalSpeedButton;
@@ -258,6 +274,7 @@ public class GameScreen implements Screen {
         buildOverlay();
         buildTowerInfoWindow();
         buildPlacementConfirmWindow();
+        buildWaveBanner();
 
         inputMultiplexer = new InputMultiplexer(overlayStage, hudStage, mapInputProcessor);
 
@@ -613,15 +630,70 @@ public class GameScreen implements Screen {
         overlayStage.addActor(placementConfirmWindow);
     }
 
+    /** Transient wave start/clear announcement. Vertically centered on the full window, but horizontally
+     * centered over the map viewport only (MAP_VIEWPORT_WIDTH_PX, not the full window) so it sits in the
+     * middle of the play area instead of drifting right into the docked HUD panel. See showWaveBanner()
+     * for the fade-in/hold/fade-out sequence and render() for the BUILD<->WAVE transition detection. */
+    private void buildWaveBanner() {
+        waveBannerLabel = new Label("", skin, "window");
+        waveBannerLabel.setAlignment(Align.center);
+        waveBannerLabel.setVisible(false);
+        waveBannerLabel.setTouchable(Touchable.disabled);
+        overlayStage.addActor(waveBannerLabel);
+    }
+
+    private void showWaveBanner(String text) {
+        waveBannerLabel.setText(text);
+        waveBannerLabel.pack();
+        waveBannerLabel.setPosition(
+            (GameConstants.MAP_VIEWPORT_WIDTH_PX - waveBannerLabel.getWidth()) / 2f,
+            (overlayStage.getViewport().getWorldHeight() - waveBannerLabel.getHeight()) / 2f
+        );
+        waveBannerLabel.setOrigin(Align.center);
+        waveBannerLabel.clearActions();
+        waveBannerLabel.setColor(1f, 1f, 1f, 0f);
+        waveBannerLabel.setVisible(true);
+        waveBannerLabel.addAction(Actions.sequence(
+            Actions.fadeIn(WAVE_BANNER_FADE_IN_SECONDS, Interpolation.fade),
+            Actions.delay(WAVE_BANNER_HOLD_SECONDS),
+            Actions.fadeOut(WAVE_BANNER_FADE_OUT_SECONDS, Interpolation.fade),
+            Actions.visible(false)
+        ));
+    }
+
     private void updatePlacementConfirmWindow() {
         boolean show = InputSettings.getMode() == InputMode.TOUCH
             && selectedTowerId != null
             && gridMap.isInBounds(hoverTileX, hoverTileY);
+        boolean wasVisible = placementConfirmWindow.isVisible();
         placementConfirmWindow.setVisible(show);
         placementConfirmWindow.setTouchable(show ? Touchable.enabled : Touchable.disabled);
         if (show) {
             positionWindowNearTile(placementConfirmWindow, hoverTileX + 0.5f, hoverTileY + 0.5f);
+            if (!wasVisible) {
+                fadeInPanel(placementConfirmWindow);
+            }
         }
+    }
+
+    /** Fades a just-shown floating panel in from transparent - only called on the invisible-to-visible
+     * edge (see the isVisible() check at each call site), never every frame while already shown. */
+    private void fadeInPanel(Actor panel) {
+        panel.clearActions();
+        panel.setColor(1f, 1f, 1f, 0f);
+        panel.addAction(Actions.fadeIn(PANEL_FADE_IN_SECONDS));
+    }
+
+    /** Origin at left-middle (not center) so the punch doesn't depend on the label's current width,
+     * which can be stale by one frame right after setText() changes digit count - height is stable. */
+    private void punchLabel(Label label) {
+        label.setOrigin(0f, label.getHeight() / 2f);
+        label.clearActions();
+        label.setScale(1f);
+        label.addAction(Actions.sequence(
+            Actions.scaleTo(HUD_PUNCH_SCALE, HUD_PUNCH_SCALE, HUD_PUNCH_DURATION_SECONDS / 2f, Interpolation.pow2Out),
+            Actions.scaleTo(1f, 1f, HUD_PUNCH_DURATION_SECONDS / 2f, Interpolation.pow2In)
+        ));
     }
 
     private void upgradeSelectedTower() {
@@ -653,17 +725,35 @@ public class GameScreen implements Screen {
         overlayButtonRow.add(nextLevel ? overlayNextLevelButton : overlayRetryButton).width(160);
         overlayWindow.pack();
         overlayWindow.setPosition(
-            (overlayStage.getViewport().getWorldWidth() - overlayWindow.getWidth()) / 2f,
+            (GameConstants.MAP_VIEWPORT_WIDTH_PX - overlayWindow.getWidth()) / 2f,
             (overlayStage.getViewport().getWorldHeight() - overlayWindow.getHeight()) / 2f
         );
+        overlayWindow.setOrigin(Align.center);
         overlayWindow.setVisible(true);
         overlayWindow.setTouchable(Touchable.enabled);
+        overlayWindow.setColor(1f, 1f, 1f, 0f);
+        overlayWindow.setScale(OVERLAY_SCALE_IN_START);
+        overlayWindow.addAction(Actions.parallel(
+            Actions.fadeIn(OVERLAY_FADE_IN_SECONDS, Interpolation.fade),
+            Actions.scaleTo(1f, 1f, OVERLAY_FADE_IN_SECONDS, Interpolation.swingOut)
+        ));
     }
 
     private void updateHud() {
-        goldLabel.setText(Localization.format("hud.gold", economy.getGold()));
-        livesLabel.setText(Localization.format("hud.lives", economy.getLives()));
+        int currentGold = economy.getGold();
+        int currentLives = economy.getLives();
+        goldLabel.setText(Localization.format("hud.gold", currentGold));
+        livesLabel.setText(Localization.format("hud.lives", currentLives));
         waveLabel.setText(Localization.format("hud.wave", waveController.getCurrentWaveNumber(), waveController.getTotalWaveCount()));
+
+        if (lastDisplayedGold != Integer.MIN_VALUE && currentGold != lastDisplayedGold) {
+            punchLabel(goldLabel);
+        }
+        if (lastDisplayedLives != Integer.MIN_VALUE && currentLives != lastDisplayedLives) {
+            punchLabel(livesLabel);
+        }
+        lastDisplayedGold = currentGold;
+        lastDisplayedLives = currentLives;
 
         boolean buildPhase = waveController.getPhase() == GamePhase.BUILD;
         startWaveButton.setDisabled(!waveController.canStartNextWave());
@@ -694,6 +784,7 @@ public class GameScreen implements Screen {
             towerInfoWindow.setTouchable(Touchable.disabled);
             return;
         }
+        boolean wasVisible = towerInfoWindow.isVisible();
 
         TowerComponent tower = Mappers.TOWER.get(selectedTowerEntity);
         TowerDefinition definition = tower.definition;
@@ -748,6 +839,9 @@ public class GameScreen implements Screen {
         positionTowerInfoWindow();
         towerInfoWindow.setVisible(true);
         towerInfoWindow.setTouchable(Touchable.enabled);
+        if (!wasVisible) {
+            fadeInPanel(towerInfoWindow);
+        }
     }
 
     private String nextLevelPreviewKey(int nextLevel) {
@@ -799,6 +893,14 @@ public class GameScreen implements Screen {
             float simDelta = waveController.getPhase() == GamePhase.WAVE ? delta * timeScale : delta;
             waveController.update(simDelta);
             engine.update(simDelta);
+
+            GamePhase currentPhase = waveController.getPhase();
+            if (lastPhase == GamePhase.BUILD && currentPhase == GamePhase.WAVE) {
+                showWaveBanner(Localization.format("hud.waveBanner.start", waveController.getCurrentWaveNumber()));
+            } else if (lastPhase == GamePhase.WAVE && currentPhase == GamePhase.BUILD && !waveController.allWavesCleared()) {
+                showWaveBanner(Localization.format("hud.waveBanner.clear", waveController.getCurrentWaveNumber()));
+            }
+            lastPhase = currentPhase;
 
             if (economy.isGameOver()) {
                 gameEnded = true;
