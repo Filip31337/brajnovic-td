@@ -7,6 +7,7 @@ import hr.brajnovic.td.input.InputSettings;
 import hr.brajnovic.td.screen.GameScreen;
 import hr.brajnovic.td.screen.MenuScreen;
 import hr.brajnovic.td.sound.SoundManager;
+import hr.brajnovic.td.wave.WaveSpeedSettings;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class BrajnovicTD extends Game {
@@ -19,6 +20,7 @@ public class BrajnovicTD extends Game {
         Localization.init();
         SoundManager.init();
         InputSettings.init();
+        WaveSpeedSettings.init();
         setScreen(new MenuScreen(this));
     }
 

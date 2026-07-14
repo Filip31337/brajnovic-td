@@ -30,6 +30,7 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.Touchable;
 import com.badlogic.gdx.scenes.scene2d.actions.Actions;
+import com.badlogic.gdx.scenes.scene2d.ui.CheckBox;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -81,6 +82,7 @@ import hr.brajnovic.td.tower.TowerUpgrade;
 import hr.brajnovic.td.ui.SkinFactory;
 import hr.brajnovic.td.wave.GamePhase;
 import hr.brajnovic.td.wave.WaveController;
+import hr.brajnovic.td.wave.WaveSpeedSettings;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -180,7 +182,8 @@ public class GameScreen implements Screen {
     private TextButton pauseButton;
     private TextButton normalSpeedButton;
     private TextButton fastSpeedButton;
-    private float timeScale = 1f;
+    private CheckBox rememberSpeedCheckBox;
+    private float timeScale = WaveSpeedSettings.isRemembered() ? WaveSpeedSettings.getPreferredTimeScale() : 1f;
 
     private Window overlayWindow;
     private Label overlayMessageLabel;
@@ -466,6 +469,7 @@ public class GameScreen implements Screen {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 timeScale = 1f;
+                WaveSpeedSettings.setPreferredTimeScale(timeScale);
             }
         });
         fastSpeedButton = new TextButton("2x", skin);
@@ -473,12 +477,27 @@ public class GameScreen implements Screen {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 timeScale = 2f;
+                WaveSpeedSettings.setPreferredTimeScale(timeScale);
             }
         });
         speedTable.add(pauseButton).width(60).padRight(4);
         speedTable.add(normalSpeedButton).width(60).padRight(4);
         speedTable.add(fastSpeedButton).width(60);
-        root.add(speedTable).padBottom(8).left().row();
+        root.add(speedTable).padBottom(4).left().row();
+
+        rememberSpeedCheckBox = new CheckBox(" " + Localization.get("hud.rememberSpeed"), skin);
+        rememberSpeedCheckBox.setChecked(WaveSpeedSettings.isRemembered());
+        rememberSpeedCheckBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                boolean checked = rememberSpeedCheckBox.isChecked();
+                WaveSpeedSettings.setRemembered(checked);
+                if (checked && timeScale > 0f) {
+                    WaveSpeedSettings.setPreferredTimeScale(timeScale);
+                }
+            }
+        });
+        root.add(rememberSpeedCheckBox).padBottom(8).left().row();
 
         startWaveButton = new TextButton(Localization.get("hud.startWave"), skin);
         startWaveButton.addListener(new ChangeListener() {
@@ -767,7 +786,7 @@ public class GameScreen implements Screen {
             selectedTowerId = null;
             selectedTowerEntity = null;
         } else {
-            timeScale = 1f;
+            timeScale = WaveSpeedSettings.isRemembered() ? WaveSpeedSettings.getPreferredTimeScale() : 1f;
         }
 
         pauseButton.setDisabled(buildPhase || timeScale == 0f);
