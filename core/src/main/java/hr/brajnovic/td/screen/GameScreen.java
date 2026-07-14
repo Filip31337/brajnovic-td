@@ -88,6 +88,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class GameScreen implements Screen {
@@ -206,6 +207,11 @@ public class GameScreen implements Screen {
     private TextButton towerUpgradeButton;
     private TextButton towerSellButton;
 
+    private Window towerStatsWindow;
+    private Label towerStatsNameLabel;
+    private Table towerStatsTable;
+    private Entity towerStatsSourceEntity = null;
+
     private String selectedTowerId = null;
     private Entity selectedTowerEntity = null;
     private int hoverTileX = Integer.MIN_VALUE;
@@ -279,6 +285,7 @@ public class GameScreen implements Screen {
         buildHud();
         buildOverlay();
         buildTowerInfoWindow();
+        buildTowerStatsWindow();
         buildPlacementConfirmWindow();
         buildWaveBanner();
 
@@ -443,9 +450,18 @@ public class GameScreen implements Screen {
                     }
                 }
             });
+            TextButton towerInfoButton = new TextButton("i", skin);
+            towerInfoButton.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    showTowerStatsWindow(towerDefinition, 0, null);
+                }
+            });
+
             Table towerRow = new Table();
             towerRow.add(buildTowerIconStack(towerDefinition)).size(28f).padRight(6f);
             towerRow.add(towerButton).width(200);
+            towerRow.add(towerInfoButton).size(24f).padLeft(4f);
             root.add(towerRow).padTop(firstTowerButton ? 24 : 8).left().row();
             towerButtonsById.put(towerId, towerButton);
             firstTowerButton = false;
@@ -469,7 +485,9 @@ public class GameScreen implements Screen {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 timeScale = 1f;
-                WaveSpeedSettings.setPreferredTimeScale(timeScale);
+                if (WaveSpeedSettings.isRemembered()) {
+                    WaveSpeedSettings.setPreferredTimeScale(timeScale);
+                }
             }
         });
         fastSpeedButton = new TextButton("2x", skin);
@@ -477,7 +495,9 @@ public class GameScreen implements Screen {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 timeScale = 2f;
-                WaveSpeedSettings.setPreferredTimeScale(timeScale);
+                if (WaveSpeedSettings.isRemembered()) {
+                    WaveSpeedSettings.setPreferredTimeScale(timeScale);
+                }
             }
         });
         speedTable.add(pauseButton).width(60).padRight(4);
@@ -513,6 +533,11 @@ public class GameScreen implements Screen {
     private void buildOverlay() {
         overlayWindow = new Window("", skin);
         overlayWindow.setMovable(false);
+        // Window's title cell doesn't expand/fill by default, so a left-aligned label only takes its own
+        // text width -- barely visible for a short title ("Pobjeda!") but glaringly off-center for a
+        // longer one ("Level završen!"). Force the title cell to fill the bar and center the label in it.
+        overlayWindow.getTitleTable().getCell(overlayWindow.getTitleLabel()).expandX().fillX();
+        overlayWindow.getTitleLabel().setAlignment(Align.center);
 
         overlayMessageLabel = new Label("", skin);
         overlayWindow.add(overlayMessageLabel).pad(20).row();
@@ -570,6 +595,15 @@ public class GameScreen implements Screen {
         titleTable.clearChildren();
         titleTable.add(towerIconStack).size(28f).padRight(6f);
         titleTable.add(towerInfoWindow.getTitleLabel()).growX().minWidth(0);
+        TextButton towerInfoStatsButton = new TextButton("i", skin);
+        towerInfoStatsButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                TowerComponent tower = Mappers.TOWER.get(selectedTowerEntity);
+                showTowerStatsWindow(tower.definition, tower.level, selectedTowerEntity);
+            }
+        });
+        titleTable.add(towerInfoStatsButton).size(20f).padLeft(6f);
 
         towerInfoLevelLabel = new Label("", skin);
         towerInfoDamageLabel = new Label("", skin);
@@ -611,6 +645,125 @@ public class GameScreen implements Screen {
         towerInfoWindow.setVisible(false);
         towerInfoWindow.setTouchable(Touchable.disabled);
         overlayStage.addActor(towerInfoWindow);
+    }
+
+    /** Full damage/range/fire-rate(/poison/slow) table across all TowerUpgrade.MAX_LEVEL levels, opened from
+     * either the HUD purchase panel (browsing, no specific instance) or the selected-tower info window. */
+    private void buildTowerStatsWindow() {
+        towerStatsWindow = new Window(Localization.get("tower.stats.title"), skin);
+        towerStatsWindow.setMovable(false);
+        towerStatsWindow.getTitleTable().getCell(towerStatsWindow.getTitleLabel()).expandX().fillX();
+        towerStatsWindow.getTitleLabel().setAlignment(Align.center);
+
+        towerStatsNameLabel = new Label("", skin, "window");
+        towerStatsWindow.add(towerStatsNameLabel).padTop(8).row();
+
+        towerStatsTable = new Table();
+        towerStatsWindow.add(towerStatsTable).pad(12).row();
+
+        Label towerStatsLegendLabel = new Label(Localization.get("tower.stats.milestoneLegend"), skin);
+        towerStatsWindow.add(towerStatsLegendLabel).padBottom(8).row();
+
+        TextButton closeButton = new TextButton(Localization.get("tower.stats.close"), skin);
+        closeButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                towerStatsWindow.setVisible(false);
+                towerStatsWindow.setTouchable(Touchable.disabled);
+                towerStatsSourceEntity = null;
+            }
+        });
+        towerStatsWindow.add(closeButton).width(160).padBottom(12).row();
+
+        towerStatsWindow.pack();
+        towerStatsWindow.setVisible(false);
+        towerStatsWindow.setTouchable(Touchable.disabled);
+        overlayStage.addActor(towerStatsWindow);
+    }
+
+    /** sourceEntity is the placed tower this table's "current level" row tracks, so it can stay in sync
+     * across upgrades; null means "opened from the HUD purchase panel", browsing a tower type with no
+     * live instance (no row ever highlighted, nothing to keep refreshing). */
+    private void showTowerStatsWindow(TowerDefinition definition, int currentLevel, Entity sourceEntity) {
+        towerStatsSourceEntity = sourceEntity;
+        refreshTowerStatsTable(definition, currentLevel);
+        towerStatsWindow.setVisible(true);
+        towerStatsWindow.setTouchable(Touchable.enabled);
+        fadeInPanel(towerStatsWindow);
+    }
+
+    /** Called once per frame while the window is visible and tracking a live tower, so an upgrade made
+     * while the table is open re-highlights the new current-level row instead of staying stuck on the old one. */
+    private void updateTowerStatsWindow() {
+        if (!towerStatsWindow.isVisible() || towerStatsSourceEntity == null || towerStatsSourceEntity != selectedTowerEntity) {
+            return;
+        }
+        TowerComponent tower = Mappers.TOWER.get(towerStatsSourceEntity);
+        refreshTowerStatsTable(tower.definition, tower.level);
+    }
+
+    /** currentLevel of 0 means "no specific instance" -- no row highlighted. */
+    private void refreshTowerStatsTable(TowerDefinition definition, int currentLevel) {
+        towerStatsNameLabel.setText(Localization.get(definition.name));
+
+        boolean hasPoison = definition.poisonDamagePerSecond > 0f;
+        boolean hasSlow = definition.slowRatio > 0f;
+
+        towerStatsTable.clearChildren();
+        towerStatsTable.add(new Label(Localization.get("tower.stats.column.level"), skin)).pad(4);
+        towerStatsTable.add(new Label(Localization.get("tower.stats.column.damage"), skin)).pad(4);
+        towerStatsTable.add(new Label(Localization.get("tower.stats.column.range"), skin)).pad(4);
+        towerStatsTable.add(new Label(Localization.get("tower.stats.column.fireRate"), skin)).pad(4);
+        if (hasPoison) {
+            towerStatsTable.add(new Label(Localization.get("tower.stats.column.poison"), skin)).pad(4);
+        }
+        if (hasSlow) {
+            towerStatsTable.add(new Label(Localization.get("tower.stats.column.slow"), skin)).pad(4);
+        }
+        towerStatsTable.row();
+
+        for (int level = 1; level <= TowerUpgrade.MAX_LEVEL; level++) {
+            boolean highlight = level == currentLevel;
+            TowerUpgrade.MilestoneStat milestone = TowerUpgrade.milestoneAtLevel(level);
+            towerStatsTable.add(towerStatsCell(String.valueOf(level), highlight, milestone != null)).pad(4);
+            towerStatsTable.add(towerStatsCell(formatStat(TowerUpgrade.damageForLevel(definition, level)),
+                highlight, milestone == TowerUpgrade.MilestoneStat.DAMAGE)).pad(4);
+            towerStatsTable.add(towerStatsCell(formatStat(TowerUpgrade.rangeForLevel(definition, level)),
+                highlight, milestone == TowerUpgrade.MilestoneStat.RANGE)).pad(4);
+            towerStatsTable.add(towerStatsCell(formatStat(TowerUpgrade.fireRateForLevel(definition, level)),
+                highlight, milestone == TowerUpgrade.MilestoneStat.FIRE_RATE)).pad(4);
+            if (hasPoison) {
+                towerStatsTable.add(towerStatsCell(formatStat(TowerUpgrade.poisonDamagePerSecondForLevel(definition, level)),
+                    highlight, false)).pad(4);
+            }
+            if (hasSlow) {
+                int slowPercent = Math.round(TowerUpgrade.slowRatioForLevel(definition, level) * 100);
+                towerStatsTable.add(towerStatsCell(slowPercent + "%", highlight, false)).pad(4);
+            }
+            towerStatsTable.row();
+        }
+
+        towerStatsWindow.pack();
+        towerStatsWindow.setPosition(
+            (GameConstants.MAP_VIEWPORT_WIDTH_PX - towerStatsWindow.getWidth()) / 2f,
+            (overlayStage.getViewport().getWorldHeight() - towerStatsWindow.getHeight()) / 2f
+        );
+    }
+
+    private static String formatStat(float value) {
+        return String.format(Locale.ROOT, "%.1f", value);
+    }
+
+    /** highlight = this is the tower's current level (gold); milestone = this cell's stat gets the
+     * one-time +20% bonus at this level (green tint + "*" marker, see tower.stats.milestoneLegend). */
+    private Label towerStatsCell(String text, boolean highlight, boolean milestone) {
+        Label label = new Label(milestone ? text + " *" : text, skin);
+        if (highlight) {
+            label.setColor(1f, 0.85f, 0.25f, 1f);
+        } else if (milestone) {
+            label.setColor(0.45f, 1f, 0.55f, 1f);
+        }
+        return label;
     }
 
     /** TOUCH-mode-only confirm/cancel panel shown next to the ghost preview tile (replaces the mouse-only
@@ -952,6 +1105,7 @@ public class GameScreen implements Screen {
         hudStage.draw();
 
         updateTowerInfoWindow();
+        updateTowerStatsWindow();
         updatePlacementConfirmWindow();
         overlayStage.act(delta);
         overlayStage.getViewport().apply();

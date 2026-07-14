@@ -9,8 +9,11 @@ import com.badlogic.gdx.Preferences;
 public final class WaveSpeedSettings {
 
     private static final String PREFS_NAME = "brajnovic-td-settings";
-    private static final String PREF_KEY_REMEMBER = "rememberWaveSpeed";
-    private static final String PREF_KEY_TIME_SCALE = "preferredWaveTimeScale";
+    // Renamed (v2 suffix) to force a clean 1x/unchecked default: earlier testing had already persisted
+    // remembered=true/2x under the old keys, which isn't a code bug -- it's the feature working as
+    // designed on stale saved state, but 1x/unchecked is the correct out-of-the-box default.
+    private static final String PREF_KEY_REMEMBER = "rememberWaveSpeed_v2";
+    private static final String PREF_KEY_TIME_SCALE = "preferredWaveTimeScale_v2";
     private static final float DEFAULT_TIME_SCALE = 1f;
 
     private static boolean remembered = false;

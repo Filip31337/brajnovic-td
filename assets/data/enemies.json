@@ -24,8 +24,8 @@
     "deathSoundId": "zombie_death",
     "deathParticleId": "enemy_death",
     "resistances": {},
-    "healIntervalSeconds": 8.0,
-    "healPercentOfMaxHp": 0.20,
+    "healIntervalSeconds": 10.0,
+    "healPercentOfMaxHp": 0.12,
     "healDurationSeconds": 1.0,
     "healParticleId": "heal",
     "healSoundId": "heal"

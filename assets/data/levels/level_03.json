@@ -10,7 +10,7 @@
   "countScalePerWave": 1.14,
   "bossWaveInterval": 5,
   "bossEnemyId": "boss_orc",
-  "bossHpMultiplier": 12.0,
+  "bossHpMultiplier": 8.8,
   "waveClearGoldBonusBase": 80,
   "waveClearGoldBonusScalePerWave": 1.1,
   "nextLevelId": "level_04"

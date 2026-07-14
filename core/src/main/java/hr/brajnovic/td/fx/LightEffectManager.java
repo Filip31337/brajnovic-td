@@ -20,13 +20,15 @@ public class LightEffectManager implements Disposable {
 
     private static final int RAYS = 32;
     private static final float DISTANCE_PX = 150f;
+    /** Global knob for all light effect intensity (alpha channel); user found the original 0.55 too strong. */
+    private static final float INTENSITY_MULTIPLIER = 0.85f;
 
     private static final ObjectMap<String, Color> SPEC_COLORS = new ObjectMap<>();
 
     static {
-        SPEC_COLORS.put("cannon_glow", new Color(1f, 0.55f, 0.15f, 0.55f));
-        SPEC_COLORS.put("ice_glow", new Color(0.4f, 0.8f, 1f, 0.55f));
-        SPEC_COLORS.put("poison_glow", new Color(0.4f, 1f, 0.4f, 0.55f));
+        SPEC_COLORS.put("cannon_glow", new Color(1f, 0.55f, 0.15f, 0.55f * INTENSITY_MULTIPLIER));
+        SPEC_COLORS.put("ice_glow", new Color(0.4f, 0.8f, 1f, 0.55f * INTENSITY_MULTIPLIER));
+        SPEC_COLORS.put("poison_glow", new Color(0.4f, 1f, 0.4f, 0.55f * INTENSITY_MULTIPLIER));
     }
 
     private static final class ActiveFlash {
