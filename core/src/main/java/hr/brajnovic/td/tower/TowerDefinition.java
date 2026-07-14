@@ -33,6 +33,10 @@ public class TowerDefinition {
     public String impactSoundId;
     /** Particle effect ID (matches an id built by {@link hr.brajnovic.td.fx.ParticleEffectManager}) spawned on impact. */
     public String impactParticleId;
+    /** Light ID (matches an id in {@link hr.brajnovic.td.fx.LightEffectManager}) flashed briefly when this tower fires; null = no muzzle flash. */
+    public String muzzleFlashLightId;
+    /** Light ID that travels with this tower's projectile until impact; null = no projectile light. */
+    public String projectileLightId;
 
     /** Base name of the sprites-src sheet (PNG + JSON) under assets/sprites-src/, e.g. "tower_atlas". */
     public String spriteSheetId;

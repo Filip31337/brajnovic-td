@@ -10,6 +10,7 @@ import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.enemy.ActiveEffect;
 import hr.brajnovic.td.enemy.EffectType;
 import hr.brajnovic.td.enemy.EnemyComponent;
+import hr.brajnovic.td.fx.LightEffectManager;
 import hr.brajnovic.td.fx.ParticleEffectManager;
 import hr.brajnovic.td.sound.SoundManager;
 
@@ -18,10 +19,12 @@ public class ProjectileSystem extends IteratingSystem {
     private static final Family ENEMY_FAMILY = Family.all(EnemyComponent.class, PositionComponent.class).get();
 
     private final ParticleEffectManager particleEffectManager;
+    private final LightEffectManager lightEffectManager;
 
-    public ProjectileSystem(ParticleEffectManager particleEffectManager) {
+    public ProjectileSystem(ParticleEffectManager particleEffectManager, LightEffectManager lightEffectManager) {
         super(Family.all(ProjectileComponent.class, PositionComponent.class).get(), 2);
         this.particleEffectManager = particleEffectManager;
+        this.lightEffectManager = lightEffectManager;
     }
 
     @Override
@@ -33,6 +36,10 @@ public class ProjectileSystem extends IteratingSystem {
             projectile.impactTimer += deltaTime;
             position.value.set(projectile.targetPosition);
             if (projectile.impactTimer >= projectile.impactAnimationDuration) {
+                if (projectile.projectileLight != null) {
+                    lightEffectManager.release(projectile.projectileLightId, projectile.projectileLight);
+                    projectile.projectileLight = null;
+                }
                 getEngine().removeEntity(entity);
             }
             return;
@@ -54,6 +61,11 @@ public class ProjectileSystem extends IteratingSystem {
 
         float t = 1f - Math.max(0f, projectile.timeToImpact) / projectile.totalTime;
         position.value.set(projectile.startPosition).lerp(projectile.targetPosition, t);
+        if (projectile.projectileLight != null) {
+            projectile.projectileLight.setPosition(
+                position.value.x * GameConstants.SCALED_TILE_SIZE_PX,
+                position.value.y * GameConstants.SCALED_TILE_SIZE_PX);
+        }
     }
 
     private void applySingleTargetDamage(ProjectileComponent projectile) {

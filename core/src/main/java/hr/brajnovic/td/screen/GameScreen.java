@@ -59,6 +59,7 @@ import hr.brajnovic.td.enemy.EnemyLifecycleSystem;
 import hr.brajnovic.td.enemy.EnemyRegistry;
 import hr.brajnovic.td.enemy.EnemyState;
 import hr.brajnovic.td.enemy.EnemyStatusEffectSystem;
+import hr.brajnovic.td.fx.LightEffectManager;
 import hr.brajnovic.td.fx.ParticleEffectManager;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.map.GridMap;
@@ -148,6 +149,7 @@ public class GameScreen implements Screen {
     private final ShaderProgram enemyStatusTintShader;
     private final ShaderProgram towerOutlineShader;
     private final ParticleEffectManager particleEffectManager;
+    private final LightEffectManager lightEffectManager;
     private final Texture confirmIconTexture;
     private final Texture cancelIconTexture;
     private final Texture placementPanelTexture;
@@ -219,12 +221,13 @@ public class GameScreen implements Screen {
 
         economy = new Economy(level.startingGold, level.startingLives);
         particleEffectManager = new ParticleEffectManager();
+        lightEffectManager = new LightEffectManager();
         engine = new PooledEngine();
         engine.addSystem(new BossBehaviorSystem());
         engine.addSystem(new EnemyStatusEffectSystem());
         engine.addSystem(new EnemyLifecycleSystem(economy, particleEffectManager));
-        engine.addSystem(new TowerTargetingSystem());
-        engine.addSystem(new ProjectileSystem(particleEffectManager));
+        engine.addSystem(new TowerTargetingSystem(lightEffectManager));
+        engine.addSystem(new ProjectileSystem(particleEffectManager, lightEffectManager));
         waveController = new WaveController(level, enemyRegistry, gridMap, economy, engine, particleEffectManager);
 
         mapCamera = new OrthographicCamera();
@@ -997,6 +1000,9 @@ public class GameScreen implements Screen {
             }
         }
         shapeRenderer.end();
+
+        lightEffectManager.update(delta);
+        lightEffectManager.render(mapCamera);
     }
 
     private record TowerFrames(TextureRegion base, TextureRegion turret, float rotation, float originX, float originY) {
@@ -1294,6 +1300,7 @@ public class GameScreen implements Screen {
 
         mapViewport.update(mapAreaWidth, height, true);
         mapViewport.setScreenBounds(0, 0, mapAreaWidth, height);
+        lightEffectManager.resize(mapAreaWidth, height);
         mapCamera.position.set(
             GameConstants.MAP_VIEWPORT_WIDTH_PX / 2f,
             GameConstants.MAP_VIEWPORT_HEIGHT_PX / 2f,
@@ -1329,6 +1336,7 @@ public class GameScreen implements Screen {
             texture.dispose();
         }
         particleEffectManager.dispose();
+        lightEffectManager.dispose();
         confirmIconTexture.dispose();
         cancelIconTexture.dispose();
         placementPanelTexture.dispose();

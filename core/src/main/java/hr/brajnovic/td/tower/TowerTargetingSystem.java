@@ -5,9 +5,11 @@ import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
+import hr.brajnovic.td.GameConstants;
 import hr.brajnovic.td.ecs.Mappers;
 import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.enemy.EnemyComponent;
+import hr.brajnovic.td.fx.LightEffectManager;
 import hr.brajnovic.td.sound.SoundManager;
 
 /** "First" (progress-based) targeting: tracks the furthest-progressed enemy in range and fires leading-shot projectiles. */
@@ -15,8 +17,11 @@ public class TowerTargetingSystem extends IteratingSystem {
 
     private static final Family ENEMY_FAMILY = Family.all(EnemyComponent.class, PositionComponent.class).get();
 
-    public TowerTargetingSystem() {
+    private final LightEffectManager lightEffectManager;
+
+    public TowerTargetingSystem(LightEffectManager lightEffectManager) {
         super(Family.all(TowerComponent.class, PositionComponent.class).get(), 1);
+        this.lightEffectManager = lightEffectManager;
     }
 
     @Override
@@ -100,6 +105,9 @@ public class TowerTargetingSystem extends IteratingSystem {
         tower.fireCooldown = 1f / TowerUpgrade.fireRateForLevel(tower.definition, tower.level);
         tower.timeSinceLastShot = 0f;
         SoundManager.play(tower.definition.shootSoundId);
+        lightEffectManager.spawnFlash(tower.definition.muzzleFlashLightId,
+            position.x * GameConstants.SCALED_TILE_SIZE_PX, position.y * GameConstants.SCALED_TILE_SIZE_PX,
+            tower.definition.shootAnimationDurationSeconds * 0.5f);
 
         Vector2 targetVelocity = enemyVelocity(targetEnemy, tower.target);
         Vector2 predictedImpact = predictImpactPosition(position, targetPosition, targetVelocity, tower.definition.projectileSpeedTilesPerSec);
@@ -112,6 +120,8 @@ public class TowerTargetingSystem extends IteratingSystem {
         float poisonDamagePerSecond = TowerUpgrade.poisonDamagePerSecondForLevel(tower.definition, tower.level);
         projectile.init(position, predictedImpact, tower.target, tower.targetSpawnId,
             damage, slowRatio, poisonDamagePerSecond, tower.definition);
+        projectile.projectileLight = lightEffectManager.attachTraveling(tower.definition.projectileLightId,
+            position.x * GameConstants.SCALED_TILE_SIZE_PX, position.y * GameConstants.SCALED_TILE_SIZE_PX);
 
         Entity projectileEntity = getEngine().createEntity();
         projectileEntity.add(projectilePosition);

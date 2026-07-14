@@ -30,6 +30,9 @@ public final class GameConstants {
     public static final float ENEMY_MAX_PATH_DEVIATION_TILES = 0.3f;
     public static final float ENEMY_GOAL_ARRIVAL_TOLERANCE_TILES = 0.05f;
 
+    /** Box2DLights ambient intensity (see LightEffectManager) -- subtle dimming, not a night-mode look. */
+    public static final float LIGHT_AMBIENT_INTENSITY = 0.85f;
+
     public static final String FIRST_LEVEL_ID = "level_01";
 
     private GameConstants() {

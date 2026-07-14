@@ -1,5 +1,6 @@
 package hr.brajnovic.td.tower;
 
+import box2dLight.PointLight;
 import com.badlogic.ashley.core.Component;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.gdx.math.MathUtils;
@@ -34,6 +35,9 @@ public class ProjectileComponent implements Component, Poolable {
     public String spriteSheetId;
     public String impactSoundId;
     public String impactParticleId;
+    public String projectileLightId;
+    /** Handle to the LightEffectManager-pooled light travelling with this projectile while it's alive; null if projectileLightId is null. */
+    public PointLight projectileLight;
 
     /** damage/slowRatio/poisonDamagePerSecond are level-scaled by the caller (see TowerUpgrade); everything
      * else here is shot-independent and copied straight off the firing tower's definition, so this signature
@@ -62,6 +66,7 @@ public class ProjectileComponent implements Component, Poolable {
         this.spriteSheetId = definition.spriteSheetId;
         this.impactSoundId = definition.impactSoundId;
         this.impactParticleId = definition.impactParticleId;
+        this.projectileLightId = definition.projectileLightId;
     }
 
     @Override
@@ -84,5 +89,7 @@ public class ProjectileComponent implements Component, Poolable {
         spriteSheetId = null;
         impactSoundId = null;
         impactParticleId = null;
+        projectileLightId = null;
+        projectileLight = null;
     }
 }

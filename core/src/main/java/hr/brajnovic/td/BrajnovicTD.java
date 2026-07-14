@@ -1,6 +1,7 @@
 package hr.brajnovic.td;
 
 import com.badlogic.gdx.Game;
+import com.badlogic.gdx.physics.box2d.Box2D;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.input.InputSettings;
 import hr.brajnovic.td.screen.GameScreen;
@@ -14,6 +15,7 @@ public class BrajnovicTD extends Game {
 
     @Override
     public void create() {
+        Box2D.init();
         Localization.init();
         SoundManager.init();
         InputSettings.init();
