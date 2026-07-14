@@ -15,7 +15,6 @@ public class EnemyComponent implements Component, Poolable {
     public int spawnId;
     public EnemyDefinition definition;
     public List<GridPoint2> path;
-    public int waypointIndex = 1;
     public float maxHp;
     public float hp;
     public float distanceTraveled = 0f;
@@ -36,7 +35,6 @@ public class EnemyComponent implements Component, Poolable {
         spawnId = 0;
         definition = null;
         path = null;
-        waypointIndex = 1;
         maxHp = 0f;
         hp = 0f;
         distanceTraveled = 0f;

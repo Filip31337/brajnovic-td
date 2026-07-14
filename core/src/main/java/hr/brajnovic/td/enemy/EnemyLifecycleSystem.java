@@ -3,15 +3,20 @@ package hr.brajnovic.td.enemy;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
+import com.badlogic.gdx.ai.steer.SteeringAcceleration;
 import com.badlogic.gdx.math.GridPoint2;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector2;
 import hr.brajnovic.td.GameConstants;
 import hr.brajnovic.td.ecs.Mappers;
 import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.economy.Economy;
 import hr.brajnovic.td.fx.ParticleEffectManager;
 
-/** Moves enemies along their precomputed path and removes them on death or reaching the goal. */
+import java.util.List;
+
+/** Moves enemies along their precomputed path (gdx-ai Steering: FollowPath blended with Separation) and
+ * removes them on death or reaching the goal. */
 public class EnemyLifecycleSystem extends IteratingSystem {
 
     /** 8-way facing order matching increasing atan2 angle (E=0deg, going counter-clockwise). */
@@ -59,27 +64,52 @@ public class EnemyLifecycleSystem extends IteratingSystem {
 
         enemy.animationTime += deltaTime;
 
-        GridPoint2 waypoint = enemy.path.get(enemy.waypointIndex);
-        float targetX = waypoint.x + 0.5f;
-        float targetY = waypoint.y + 0.5f;
-        float dx = targetX - position.value.x;
-        float dy = targetY - position.value.y;
-        float distance = (float) Math.sqrt(dx * dx + dy * dy);
-        float step = enemy.definition.speedTilesPerSec * enemy.speedMultiplier * deltaTime;
+        SteeringComponent steering = Mappers.STEERING.get(entity);
+        steering.maxLinearSpeed = enemy.definition.speedTilesPerSec * enemy.speedMultiplier;
+        steering.blended.calculateSteering(steering.steeringOutput);
+        applySteering(steering, deltaTime);
+        clampLateralDeviation(enemy, position, steering);
 
-        enemy.facingDirection = directionFromDelta(dx, dy);
+        enemy.distanceTraveled = steering.followPath.getPathParam().getDistance();
+        if (!steering.linearVelocity.isZero(0.0001f)) {
+            enemy.facingDirection = directionFromDelta(steering.linearVelocity.x, steering.linearVelocity.y);
+        }
+        if (position.value.dst(steering.linePath.getEndPoint()) <= GameConstants.ENEMY_GOAL_ARRIVAL_TOLERANCE_TILES) {
+            enemy.reachedGoal = true;
+        }
+    }
 
-        if (step >= distance) {
-            enemy.distanceTraveled += distance;
-            position.value.set(targetX, targetY);
-            enemy.waypointIndex++;
-            if (enemy.waypointIndex >= enemy.path.size()) {
-                enemy.reachedGoal = true;
-            }
-        } else {
-            enemy.distanceTraveled += step;
-            position.value.x += dx / distance * step;
-            position.value.y += dy / distance * step;
+    /** Standard gdx-ai integration: accelerate velocity toward the steering output, clamp to max speed, integrate position. */
+    private static void applySteering(SteeringComponent steering, float deltaTime) {
+        SteeringAcceleration<Vector2> acceleration = steering.steeringOutput;
+        if (!acceleration.linear.isZero()) {
+            steering.linearVelocity.mulAdd(acceleration.linear, deltaTime).limit(steering.maxLinearSpeed);
+        }
+        steering.position.value.mulAdd(steering.linearVelocity, deltaTime);
+    }
+
+    /** Hard safety cap: Separation alone has no notion of corridor width, so without this an enemy could
+     * visually drift through a blocked/wall tile in a 1-tile-wide maze corridor when several are crowded together. */
+    private static void clampLateralDeviation(EnemyComponent enemy, PositionComponent position, SteeringComponent steering) {
+        List<GridPoint2> path = enemy.path;
+        int segmentIndex = MathUtils.clamp(steering.followPath.getPathParam().getSegmentIndex(), 0, path.size() - 2);
+        GridPoint2 a = path.get(segmentIndex);
+        GridPoint2 b = path.get(segmentIndex + 1);
+        float ax = a.x + 0.5f, ay = a.y + 0.5f;
+        float bx = b.x + 0.5f, by = b.y + 0.5f;
+        float segDx = bx - ax, segDy = by - ay;
+        float segLenSq = segDx * segDx + segDy * segDy;
+        float t = segLenSq > 0.0001f
+            ? MathUtils.clamp(((position.value.x - ax) * segDx + (position.value.y - ay) * segDy) / segLenSq, 0f, 1f)
+            : 0f;
+        float nearestX = ax + segDx * t;
+        float nearestY = ay + segDy * t;
+        float devX = position.value.x - nearestX;
+        float devY = position.value.y - nearestY;
+        float deviation = (float) Math.sqrt(devX * devX + devY * devY);
+        if (deviation > GameConstants.ENEMY_MAX_PATH_DEVIATION_TILES) {
+            float scale = GameConstants.ENEMY_MAX_PATH_DEVIATION_TILES / deviation;
+            position.value.set(nearestX + devX * scale, nearestY + devY * scale);
         }
     }
 

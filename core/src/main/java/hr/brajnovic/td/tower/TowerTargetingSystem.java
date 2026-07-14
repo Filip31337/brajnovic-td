@@ -3,7 +3,6 @@ package hr.brajnovic.td.tower;
 import com.badlogic.ashley.core.Entity;
 import com.badlogic.ashley.core.Family;
 import com.badlogic.ashley.systems.IteratingSystem;
-import com.badlogic.gdx.math.GridPoint2;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import hr.brajnovic.td.ecs.Mappers;
@@ -102,7 +101,7 @@ public class TowerTargetingSystem extends IteratingSystem {
         tower.timeSinceLastShot = 0f;
         SoundManager.play(tower.definition.shootSoundId);
 
-        Vector2 targetVelocity = enemyVelocity(targetEnemy, targetPosition);
+        Vector2 targetVelocity = enemyVelocity(targetEnemy, tower.target);
         Vector2 predictedImpact = predictImpactPosition(position, targetPosition, targetVelocity, tower.definition.projectileSpeedTilesPerSec);
 
         PositionComponent projectilePosition = getEngine().createComponent(PositionComponent.class);
@@ -120,16 +119,13 @@ public class TowerTargetingSystem extends IteratingSystem {
         getEngine().addEntity(projectileEntity);
     }
 
-    private static Vector2 enemyVelocity(EnemyComponent enemy, Vector2 position) {
+    /** reachedGoal is only ever pre-true for the degenerate spawn==goal path, the one case with no
+     * SteeringComponent (see WaveController.spawnEnemy) -- checking it first keeps this null-safe. */
+    private static Vector2 enemyVelocity(EnemyComponent enemy, Entity targetEntity) {
         if (enemy.reachedGoal) {
             return new Vector2();
         }
-        GridPoint2 waypoint = enemy.path.get(enemy.waypointIndex);
-        Vector2 direction = new Vector2(waypoint.x + 0.5f - position.x, waypoint.y + 0.5f - position.y);
-        if (direction.isZero(0.0001f)) {
-            return new Vector2();
-        }
-        return direction.nor().scl(enemy.definition.speedTilesPerSec);
+        return Mappers.STEERING.get(targetEntity).linearVelocity.cpy();
     }
 
     private static Vector2 predictImpactPosition(Vector2 towerPosition, Vector2 enemyPosition, Vector2 enemyVelocity, float projectileSpeed) {

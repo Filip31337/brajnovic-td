@@ -6,6 +6,7 @@ import com.badlogic.ashley.core.PooledEngine;
 import com.badlogic.gdx.ai.fsm.DefaultStateMachine;
 import com.badlogic.gdx.math.GridPoint2;
 import com.badlogic.gdx.math.MathUtils;
+import hr.brajnovic.td.GameConstants;
 import hr.brajnovic.td.ecs.PositionComponent;
 import hr.brajnovic.td.economy.Economy;
 import hr.brajnovic.td.enemy.BossBehaviorTreeFactory;
@@ -13,7 +14,9 @@ import hr.brajnovic.td.enemy.BossComponent;
 import hr.brajnovic.td.enemy.EnemyComponent;
 import hr.brajnovic.td.enemy.EnemyDefinition;
 import hr.brajnovic.td.enemy.EnemyRegistry;
+import hr.brajnovic.td.enemy.EnemySteerables;
 import hr.brajnovic.td.enemy.EnemyState;
+import hr.brajnovic.td.enemy.SteeringComponent;
 import hr.brajnovic.td.fx.ParticleEffectManager;
 import hr.brajnovic.td.map.GridMap;
 import hr.brajnovic.td.map.LevelDefinition;
@@ -35,6 +38,7 @@ public class WaveController {
     private final Economy economy;
     private final PooledEngine engine;
     private final ParticleEffectManager particleEffectManager;
+    private final EnemySteerables enemySteerables;
 
     private GamePhase phase = GamePhase.BUILD;
     private int currentWaveNumber = 0;
@@ -51,6 +55,7 @@ public class WaveController {
         this.economy = economy;
         this.engine = engine;
         this.particleEffectManager = particleEffectManager;
+        this.enemySteerables = new EnemySteerables(engine);
     }
 
     public GamePhase getPhase() {
@@ -173,6 +178,13 @@ public class WaveController {
         enemyComponent.stateMachine = new DefaultStateMachine<>(entity, EnemyState.WALKING);
         entity.add(enemyComponent);
         entity.add(positionComponent);
+
+        if (path.size() > 1) {
+            SteeringComponent steeringComponent = engine.createComponent(SteeringComponent.class);
+            steeringComponent.init(positionComponent, path, enemySteerables,
+                GameConstants.ENEMY_BOUNDING_RADIUS_TILES, GameConstants.ENEMY_STEERING_MAX_ACCELERATION_TILES_PER_SEC2);
+            entity.add(steeringComponent);
+        }
 
         if (definition.healIntervalSeconds > 0f) {
             BossComponent bossComponent = engine.createComponent(BossComponent.class);
