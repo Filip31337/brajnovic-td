@@ -154,6 +154,7 @@ public class GameScreen implements Screen {
     private final ParticleEffectManager particleEffectManager;
     private final LightEffectManager lightEffectManager;
     private final Texture confirmIconTexture;
+    private final Texture confirmIconInvalidTexture;
     private final Texture cancelIconTexture;
     private final Texture placementPanelTexture;
     private final Color statusTintScratch = new Color();
@@ -177,6 +178,7 @@ public class GameScreen implements Screen {
     private Label nextWaveTimerLabel;
     private TextButton startWaveButton;
     private Window placementConfirmWindow;
+    private ImageButton placementConfirmButton;
     private Label waveBannerLabel;
     private GamePhase lastPhase = GamePhase.BUILD;
     private final Map<String, TextButton> towerButtonsById = new LinkedHashMap<>();
@@ -217,6 +219,17 @@ public class GameScreen implements Screen {
     private int hoverTileX = Integer.MIN_VALUE;
     private int hoverTileY = Integer.MIN_VALUE;
 
+    // Map camera pan/zoom gesture tracking (mouse: middle-drag + scroll; touch: 1-finger drag + pinch).
+    private boolean desktopPanning = false;
+    private int panPointerId = -1;
+    private int lastPanScreenX;
+    private int lastPanScreenY;
+    private int pinchPointerA = -1;
+    private int pinchPointerB = -1;
+    private final Vector2 pinchScreenA = new Vector2();
+    private final Vector2 pinchScreenB = new Vector2();
+    private float lastPinchDistance = -1f;
+
     public GameScreen(BrajnovicTD game, String levelId) {
         this.game = game;
 
@@ -248,6 +261,7 @@ public class GameScreen implements Screen {
         shapeRenderer = new ShapeRenderer();
         spriteBatch = new SpriteBatch();
         confirmIconTexture = new Texture(Gdx.files.internal("ui/icon_confirm.png"));
+        confirmIconInvalidTexture = new Texture(Gdx.files.internal("ui/icon_confirm_invalid.png"));
         cancelIconTexture = new Texture(Gdx.files.internal("ui/icon_cancel.png"));
         placementPanelTexture = new Texture(Gdx.files.internal("ui/panel_rounded.png"));
         placementPanelTexture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
@@ -303,7 +317,16 @@ public class GameScreen implements Screen {
                 cancelSelection();
                 return true;
             }
-            if (button != Input.Buttons.LEFT) {
+            if (InputSettings.getMode() == InputMode.MOUSE && button == Input.Buttons.MIDDLE) {
+                desktopPanning = true;
+                lastPanScreenX = screenX;
+                lastPanScreenY = screenY;
+                return true;
+            }
+            if (InputSettings.getMode() == InputMode.TOUCH) {
+                trackPinchPointerDown(pointer, screenX, screenY);
+            }
+            if (button != Input.Buttons.LEFT || pointer != 0) {
                 return false;
             }
             updateHoverTile(screenX, screenY);
@@ -319,6 +342,42 @@ public class GameScreen implements Screen {
                 return trySelectTowerAt(hoverTileX, hoverTileY);
             }
             return false;
+        }
+
+        @Override
+        public boolean touchDragged(int screenX, int screenY, int pointer) {
+            if (InputSettings.getMode() == InputMode.MOUSE && desktopPanning) {
+                panCameraByScreen(lastPanScreenX, lastPanScreenY, screenX, screenY);
+                lastPanScreenX = screenX;
+                lastPanScreenY = screenY;
+                return true;
+            }
+            if (InputSettings.getMode() == InputMode.TOUCH) {
+                return handleTouchDrag(pointer, screenX, screenY);
+            }
+            return false;
+        }
+
+        @Override
+        public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+            if (InputSettings.getMode() == InputMode.MOUSE && button == Input.Buttons.MIDDLE) {
+                desktopPanning = false;
+                return true;
+            }
+            if (InputSettings.getMode() == InputMode.TOUCH) {
+                clearPinchPointer(pointer);
+            }
+            return false;
+        }
+
+        @Override
+        public boolean scrolled(float amountX, float amountY) {
+            if (InputSettings.getMode() != InputMode.MOUSE) {
+                return false;
+            }
+            float factor = 1f + amountY * GameConstants.CAMERA_ZOOM_SCROLL_STEP;
+            applyZoom(factor, Gdx.input.getX(), Gdx.input.getY());
+            return true;
         }
 
         @Override
@@ -339,6 +398,116 @@ public class GameScreen implements Screen {
             return false;
         }
     };
+
+    /**
+     * Tracks up to two simultaneous touch pointers for pinch-zoom; the first pointer down (while no
+     * second one is active) is instead treated as a pan candidate, promoted to a real pan in
+     * {@link #handleTouchDrag}.
+     */
+    private void trackPinchPointerDown(int pointer, int screenX, int screenY) {
+        if (pinchPointerA == -1 || pinchPointerA == pointer) {
+            pinchPointerA = pointer;
+            pinchScreenA.set(screenX, screenY);
+        } else if (pinchPointerB == -1 || pinchPointerB == pointer) {
+            pinchPointerB = pointer;
+            pinchScreenB.set(screenX, screenY);
+        }
+        if (pinchPointerA != -1 && pinchPointerB != -1) {
+            lastPinchDistance = pinchScreenA.dst(pinchScreenB);
+            panPointerId = -1;
+        } else if (panPointerId == -1) {
+            panPointerId = pointer;
+            lastPanScreenX = screenX;
+            lastPanScreenY = screenY;
+        }
+    }
+
+    private boolean handleTouchDrag(int pointer, int screenX, int screenY) {
+        if (pointer == pinchPointerA) {
+            pinchScreenA.set(screenX, screenY);
+        } else if (pointer == pinchPointerB) {
+            pinchScreenB.set(screenX, screenY);
+        }
+        if (pinchPointerA != -1 && pinchPointerB != -1) {
+            float currentDistance = pinchScreenA.dst(pinchScreenB);
+            if (lastPinchDistance > 0f && currentDistance > 0f) {
+                float midX = (pinchScreenA.x + pinchScreenB.x) / 2f;
+                float midY = (pinchScreenA.y + pinchScreenB.y) / 2f;
+                applyZoom(lastPinchDistance / currentDistance, midX, midY);
+            }
+            lastPinchDistance = currentDistance;
+            return true;
+        }
+        if (pointer == panPointerId) {
+            panCameraByScreen(lastPanScreenX, lastPanScreenY, screenX, screenY);
+            lastPanScreenX = screenX;
+            lastPanScreenY = screenY;
+            return true;
+        }
+        return false;
+    }
+
+    private void clearPinchPointer(int pointer) {
+        if (pointer == pinchPointerA) {
+            pinchPointerA = -1;
+            lastPinchDistance = -1f;
+            if (pinchPointerB != -1) {
+                panPointerId = pinchPointerB;
+                lastPanScreenX = (int) pinchScreenB.x;
+                lastPanScreenY = (int) pinchScreenB.y;
+                pinchPointerB = -1;
+            }
+        } else if (pointer == pinchPointerB) {
+            pinchPointerB = -1;
+            lastPinchDistance = -1f;
+            if (pinchPointerA != -1) {
+                panPointerId = pinchPointerA;
+                lastPanScreenX = (int) pinchScreenA.x;
+                lastPanScreenY = (int) pinchScreenA.y;
+                pinchPointerA = -1;
+            }
+        }
+        if (pointer == panPointerId) {
+            panPointerId = -1;
+        }
+    }
+
+    private void panCameraByScreen(int fromScreenX, int fromScreenY, int toScreenX, int toScreenY) {
+        Vector2 fromWorld = mapViewport.unproject(new Vector2(fromScreenX, fromScreenY));
+        Vector2 toWorld = mapViewport.unproject(new Vector2(toScreenX, toScreenY));
+        mapCamera.position.x -= toWorld.x - fromWorld.x;
+        mapCamera.position.y -= toWorld.y - fromWorld.y;
+        mapCamera.update();
+        clampCamera();
+    }
+
+    /** Zooms by {@code factor} (>1 zooms out, <1 zooms in) while keeping the world point under the given
+     *  screen anchor (cursor position, or pinch midpoint) visually stationary. */
+    private void applyZoom(float factor, float anchorScreenX, float anchorScreenY) {
+        Vector2 anchorWorldBefore = mapViewport.unproject(new Vector2(anchorScreenX, anchorScreenY));
+        mapCamera.zoom = MathUtils.clamp(mapCamera.zoom * factor, GameConstants.CAMERA_MIN_ZOOM, GameConstants.CAMERA_MAX_ZOOM);
+        mapCamera.update();
+        Vector2 anchorWorldAfter = mapViewport.unproject(new Vector2(anchorScreenX, anchorScreenY));
+        mapCamera.position.x += anchorWorldBefore.x - anchorWorldAfter.x;
+        mapCamera.position.y += anchorWorldBefore.y - anchorWorldAfter.y;
+        mapCamera.update();
+        clampCamera();
+    }
+
+    /** Keeps the visible map rectangle inside [0, MAP_VIEWPORT_WIDTH_PX] x [0, MAP_VIEWPORT_HEIGHT_PX];
+     *  collapses to dead-center when the visible area is as large as (or larger than) the map on an axis,
+     *  which is what reproduces today's fixed, centered view at CAMERA_MAX_ZOOM. */
+    private void clampCamera() {
+        float visibleWidth = mapCamera.viewportWidth * mapCamera.zoom;
+        float visibleHeight = mapCamera.viewportHeight * mapCamera.zoom;
+        float minX = Math.min(visibleWidth / 2f, GameConstants.MAP_VIEWPORT_WIDTH_PX - visibleWidth / 2f);
+        float maxX = Math.max(visibleWidth / 2f, GameConstants.MAP_VIEWPORT_WIDTH_PX - visibleWidth / 2f);
+        float minY = Math.min(visibleHeight / 2f, GameConstants.MAP_VIEWPORT_HEIGHT_PX - visibleHeight / 2f);
+        float maxY = Math.max(visibleHeight / 2f, GameConstants.MAP_VIEWPORT_HEIGHT_PX - visibleHeight / 2f);
+        mapCamera.position.x = MathUtils.clamp(mapCamera.position.x, minX, maxX);
+        mapCamera.position.y = MathUtils.clamp(mapCamera.position.y, minY, maxY);
+        mapCamera.update();
+    }
 
     private void updateHoverTile(int screenX, int screenY) {
         Vector2 point = new Vector2(screenX, screenY);
@@ -783,14 +952,15 @@ public class GameScreen implements Screen {
 
         ImageButton.ImageButtonStyle confirmStyle = new ImageButton.ImageButtonStyle();
         confirmStyle.imageUp = new TextureRegionDrawable(new TextureRegion(confirmIconTexture));
-        ImageButton confirmButton = new ImageButton(confirmStyle);
-        confirmButton.addListener(new ChangeListener() {
+        confirmStyle.imageDisabled = new TextureRegionDrawable(new TextureRegion(confirmIconInvalidTexture));
+        placementConfirmButton = new ImageButton(confirmStyle);
+        placementConfirmButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 tryPlaceSelectedTower();
             }
         });
-        placementConfirmWindow.add(confirmButton).size(48f).pad(6f);
+        placementConfirmWindow.add(placementConfirmButton).size(48f).pad(6f);
 
         ImageButton.ImageButtonStyle cancelStyle = new ImageButton.ImageButtonStyle();
         cancelStyle.imageUp = new TextureRegionDrawable(new TextureRegion(cancelIconTexture));
@@ -804,6 +974,7 @@ public class GameScreen implements Screen {
         placementConfirmWindow.add(cancelIconButton).size(48f).pad(6f);
 
         placementConfirmWindow.pack();
+        placementConfirmWindow.setOrigin(Align.center);
         placementConfirmWindow.setVisible(false);
         placementConfirmWindow.setTouchable(Touchable.disabled);
         overlayStage.addActor(placementConfirmWindow);
@@ -848,7 +1019,25 @@ public class GameScreen implements Screen {
         placementConfirmWindow.setVisible(show);
         placementConfirmWindow.setTouchable(show ? Touchable.enabled : Touchable.disabled);
         if (show) {
-            positionWindowNearTile(placementConfirmWindow, hoverTileX + 0.5f, hoverTileY + 0.5f);
+            TowerDefinition definition = towerRegistry.get(selectedTowerId);
+            boolean validPlacement = TowerPlacementValidator.canPlaceTowerAt(gridMap, hoverTileX, hoverTileY)
+                && economy.getGold() >= definition.cost;
+            placementConfirmButton.setDisabled(!validPlacement);
+            // Scales in sync with the camera zoom (see mapInputProcessor's pan/zoom) so the panel stays
+            // visually proportional to the tile it's anchored next to. At CAMERA_MAX_ZOOM (today's default,
+            // max zoom-out) the offset stays the original SCALE*0.7f -- that placement already looked right
+            // and shouldn't change. Only as you zoom IN does the offset ramp up toward a width-proportional
+            // value (0.65 of the packed width, comfortably past its scaled half), because the window's own
+            // rendered half-width grows with 1/zoom too; without the ramp, a flat offset and the window's
+            // growing half-width scale together and the gap to the tile never actually opens up.
+            placementConfirmWindow.setScale(1f / mapCamera.zoom);
+            float zoomInProgress = MathUtils.clamp(
+                (GameConstants.CAMERA_MAX_ZOOM - mapCamera.zoom) / (GameConstants.CAMERA_MAX_ZOOM - GameConstants.CAMERA_MIN_ZOOM),
+                0f, 1f);
+            float baseOffsetX = SCALE * 0.7f;
+            float maxOffsetX = placementConfirmWindow.getWidth() * 0.65f;
+            positionWindowNearTile(placementConfirmWindow, hoverTileX + 0.5f, hoverTileY + 0.5f,
+                MathUtils.lerp(baseOffsetX, maxOffsetX, zoomInProgress));
             if (!wasVisible) {
                 fadeInPanel(placementConfirmWindow);
             }
@@ -1037,17 +1226,22 @@ public class GameScreen implements Screen {
 
     private void positionTowerInfoWindow() {
         Vector2 tilePosition = Mappers.POSITION.get(selectedTowerEntity).value;
-        positionWindowNearTile(towerInfoWindow, tilePosition.x, tilePosition.y);
+        positionWindowNearTile(towerInfoWindow, tilePosition.x, tilePosition.y, SCALE * 0.7f);
     }
 
     /** Positions a floating overlay window next to a tile (world tile-center coordinates), matching the
-     * tower info panel's placement: to the right of the tile, vertically centered, clamped to stage bounds. */
-    private void positionWindowNearTile(Window window, float tileX, float tileY) {
+     * tower info panel's placement: to the right of the tile, vertically centered, clamped to stage bounds.
+     * @param offsetXWorldPx how far right of the tile (in world/map pixels, pre-camera-projection) the
+     *                       window's anchor point sits. A window that gets zoomed via {@link Window#setScale}
+     *                       (see placementConfirmWindow) needs an offset proportional to its own unscaled
+     *                       width, not a flat constant, or the anchor and the window's growing half-width
+     *                       cancel out and it ends up overlapping the tile at every zoom level. */
+    private void positionWindowNearTile(Window window, float tileX, float tileY, float offsetXWorldPx) {
         Vector2 worldPoint = new Vector2(tileX, tileY);
         // PositionComponent/tile coords are in tile units, but mapCamera/mapViewport operate in pixels
         // (see renderEntities' px = position.value.x * SCALE) - convert before projecting.
         worldPoint.scl(SCALE);
-        worldPoint.x += SCALE * 0.7f;
+        worldPoint.x += offsetXWorldPx;
         Vector2 screenPoint = mapViewport.project(worldPoint);
         // Viewport#project returns GL-style coords (origin bottom-left, y-up); screenToStageCoordinates
         // expects touch/screen coords (origin top-left, y-down), so flip y before converting.
@@ -1484,11 +1678,16 @@ public class GameScreen implements Screen {
         mapViewport.update(mapAreaWidth, height, true);
         mapViewport.setScreenBounds(0, 0, mapAreaWidth, height);
         lightEffectManager.resize(mapAreaWidth, height);
+        // Re-centers on every resize (window resize, or the initial call from the constructor) but
+        // keeps whatever zoom level was already set; clampCamera() then pulls it back in bounds if the
+        // new viewport size makes the previous position/zoom combination invalid.
         mapCamera.position.set(
             GameConstants.MAP_VIEWPORT_WIDTH_PX / 2f,
             GameConstants.MAP_VIEWPORT_HEIGHT_PX / 2f,
             0
         );
+        mapCamera.update();
+        clampCamera();
 
         hudStage.getViewport().update(hudPhysicalWidth, height, true);
         hudStage.getViewport().setScreenBounds(mapAreaWidth, 0, hudPhysicalWidth, height);
@@ -1521,6 +1720,7 @@ public class GameScreen implements Screen {
         particleEffectManager.dispose();
         lightEffectManager.dispose();
         confirmIconTexture.dispose();
+        confirmIconInvalidTexture.dispose();
         cancelIconTexture.dispose();
         placementPanelTexture.dispose();
         for (SpriteSheet sheet : enemySpriteSheetsById.values()) {

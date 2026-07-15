@@ -39,6 +39,15 @@ public final class GameConstants {
     public static final String FIRST_LEVEL_ID = "level_01";
 
     /**
+     * Map camera zoom/pan (see GameScreen's mapInputProcessor). {@code camera.zoom} of 1.0 reproduces
+     * today's fixed "whole map fits the screen" view (the ExtendViewport-computed baseline) and is the
+     * upper clamp -- you can zoom in past it but never back out further than the original fit-to-screen.
+     */
+    public static final float CAMERA_MIN_ZOOM = 0.34f;
+    public static final float CAMERA_MAX_ZOOM = 1f;
+    public static final float CAMERA_ZOOM_SCROLL_STEP = 0.1f;
+
+    /**
      * Scene2D UI is authored/tuned for a desktop window at 1:1 pixel scale; a phone's much higher pixel
      * density makes the same absolute pixel sizes physically tiny, so Android gets a bigger multiplier.
      * Applied via each screen's {@code ScreenViewport.setUnitsPerPixel(1f / scale)} — see MenuScreen,
