@@ -279,8 +279,9 @@ public class GameScreen implements Screen {
         }
         buildTowerOutlineFrames();
 
-        skin = SkinFactory.createSkin();
+        skin = SkinFactory.createSkin(GameConstants.HUD_UI_SCALE);
         hudStage = new Stage(new ScreenViewport());
+        ((ScreenViewport) hudStage.getViewport()).setUnitsPerPixel(1f / GameConstants.HUD_UI_SCALE);
         overlayStage = new Stage(new ScreenViewport());
         buildHud();
         buildOverlay();
@@ -417,8 +418,8 @@ public class GameScreen implements Screen {
         root.top().pad(16);
         hudStage.addActor(root);
 
-        root.add(new Label(Localization.get("app.title"), skin, "window")).left().row();
-
+        Table titleRow = new Table();
+        titleRow.add(new Label(Localization.get("app.title"), skin, "window")).left().expandX();
         TextButton menuButton = new TextButton(Localization.get("hud.menu"), skin);
         menuButton.addListener(new ChangeListener() {
             @Override
@@ -427,14 +428,17 @@ public class GameScreen implements Screen {
                 game.setScreen(new MenuScreen(game));
             }
         });
-        root.add(menuButton).padTop(12).width(160).left().row();
+        titleRow.add(menuButton).width(100).right();
+        root.add(titleRow).left().fillX().row();
 
         goldLabel = new Label("", skin);
         livesLabel = new Label("", skin);
         waveLabel = new Label("", skin);
-        root.add(goldLabel).padTop(24).left().row();
-        root.add(livesLabel).padTop(4).left().row();
-        root.add(waveLabel).padTop(4).left().row();
+        Table statsRow = new Table();
+        statsRow.add(goldLabel).left();
+        statsRow.add(livesLabel).left().padLeft(8);
+        statsRow.add(waveLabel).left().padLeft(8);
+        root.add(statsRow).padTop(24).left().row();
 
         boolean firstTowerButton = true;
         for (TowerDefinition towerDefinition : towerRegistry.all()) {
@@ -1469,7 +1473,13 @@ public class GameScreen implements Screen {
     public void resize(int width, int height) {
         // Viewport#update() resets screenBounds to (0, 0, w, h) internally, so setScreenBounds()
         // must run AFTER update() for docked/offset viewports, not before.
-        int mapAreaWidth = Math.max(1, width - GameConstants.HUD_WIDTH_PX);
+        //
+        // hudStage's physical footprint grows by HUD_UI_SCALE (bigger dock on a phone screen), but its
+        // *world* size passed to update() stays HUD_WIDTH_PX — combined with the 1/HUD_UI_SCALE
+        // unitsPerPixel set at construction, worldWidth = hudPhysicalWidth * (1 / HUD_UI_SCALE) =
+        // HUD_WIDTH_PX exactly, so none of the HUD's existing widget-width/padding numbers need to change.
+        int hudPhysicalWidth = Math.round(GameConstants.HUD_WIDTH_PX * GameConstants.HUD_UI_SCALE);
+        int mapAreaWidth = Math.max(1, width - hudPhysicalWidth);
 
         mapViewport.update(mapAreaWidth, height, true);
         mapViewport.setScreenBounds(0, 0, mapAreaWidth, height);
@@ -1480,8 +1490,8 @@ public class GameScreen implements Screen {
             0
         );
 
-        hudStage.getViewport().update(GameConstants.HUD_WIDTH_PX, height, true);
-        hudStage.getViewport().setScreenBounds(mapAreaWidth, 0, GameConstants.HUD_WIDTH_PX, height);
+        hudStage.getViewport().update(hudPhysicalWidth, height, true);
+        hudStage.getViewport().setScreenBounds(mapAreaWidth, 0, hudPhysicalWidth, height);
 
         overlayStage.getViewport().update(width, height, true);
         overlayStage.getViewport().setScreenBounds(0, 0, width, height);

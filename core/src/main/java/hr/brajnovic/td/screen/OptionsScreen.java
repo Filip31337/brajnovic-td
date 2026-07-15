@@ -14,6 +14,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import hr.brajnovic.td.BrajnovicTD;
+import hr.brajnovic.td.GameConstants;
 import hr.brajnovic.td.i18n.Localization;
 import hr.brajnovic.td.input.InputMode;
 import hr.brajnovic.td.input.InputSettings;
@@ -29,7 +30,8 @@ public class OptionsScreen implements Screen {
     public OptionsScreen(BrajnovicTD game) {
         this.game = game;
         this.stage = new Stage(new ScreenViewport());
-        this.skin = SkinFactory.createSkin();
+        ((ScreenViewport) stage.getViewport()).setUnitsPerPixel(1f / GameConstants.MENU_UI_SCALE);
+        this.skin = SkinFactory.createSkin(GameConstants.MENU_UI_SCALE);
 
         Table root = new Table();
         root.setFillParent(true);

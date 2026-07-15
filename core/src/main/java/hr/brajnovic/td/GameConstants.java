@@ -1,5 +1,8 @@
 package hr.brajnovic.td;
 
+import com.badlogic.gdx.Application.ApplicationType;
+import com.badlogic.gdx.Gdx;
+
 public final class GameConstants {
 
     public static final int TILE_SIZE_PX = 32;
@@ -34,6 +37,19 @@ public final class GameConstants {
     public static final float LIGHT_AMBIENT_INTENSITY = 0.85f;
 
     public static final String FIRST_LEVEL_ID = "level_01";
+
+    /**
+     * Scene2D UI is authored/tuned for a desktop window at 1:1 pixel scale; a phone's much higher pixel
+     * density makes the same absolute pixel sizes physically tiny, so Android gets a bigger multiplier.
+     * Applied via each screen's {@code ScreenViewport.setUnitsPerPixel(1f / scale)} — see MenuScreen,
+     * OptionsScreen, and GameScreen's hudStage.
+     */
+    public static final float MENU_UI_SCALE = isAndroid() ? 4f : 1f;
+    public static final float HUD_UI_SCALE = isAndroid() ? 3f : 1f;
+
+    private static boolean isAndroid() {
+        return Gdx.app != null && Gdx.app.getType() == ApplicationType.Android;
+    }
 
     private GameConstants() {
     }

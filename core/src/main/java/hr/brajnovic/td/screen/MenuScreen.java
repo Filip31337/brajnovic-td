@@ -25,7 +25,8 @@ public class MenuScreen implements Screen {
     public MenuScreen(BrajnovicTD game) {
         this.game = game;
         this.stage = new Stage(new ScreenViewport());
-        this.skin = SkinFactory.createSkin();
+        ((ScreenViewport) stage.getViewport()).setUnitsPerPixel(1f / GameConstants.MENU_UI_SCALE);
+        this.skin = SkinFactory.createSkin(GameConstants.MENU_UI_SCALE);
 
         Table root = new Table();
         root.setFillParent(true);

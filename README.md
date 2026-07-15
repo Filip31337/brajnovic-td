@@ -8,8 +8,9 @@ Tower defense maze game — build towers to block enemies from reaching the fini
 - **[libGDX](https://libgdx.com/)** `1.14.2` — cross-platform game framework (OpenGL rendering, Scene2D UI, Tiled map support, GLSL shaders)
 - **[Ashley](https://github.com/libgdx/ashley)** `1.7.4` — Entity Component System
 - **[gdx-ai](https://github.com/libgdx/gdx-ai)** `1.8.2` — A* pathfinding, finite-state machines (tower/enemy states)
-- **Gradle** — build system (multi-module: `core` + `lwjgl3`)
+- **Gradle** — build system (multi-module: `core` + `lwjgl3` + `android`)
 - **LWJGL3** — desktop backend
+- **Android Gradle Plugin** `9.3.0` — Android backend (requires the Android SDK locally, see Build below)
 - **Tiled** (`.tmx`) — level/grid editor
 - **Python 3.12+** with **[Pillow](https://python-pillow.org/)** — only needed for the sprite tooling in `tools/` (see below), not for running or building the game
 
@@ -18,7 +19,8 @@ Tower defense maze game — build towers to block enemies from reaching the fini
 - 4 tower types (arrow, cannon, ice, poison) with AOE damage, slow, and poison DOT status effects
 - Tower select/upgrade/sell system (levels 1–15, milestone bonuses)
 - 3 levels (grass/desert/winter) chained together, each with wave scaling and boss waves
-- Mouse and touch input modes (touch simulated on desktop, ready for a future Android build)
+- Mouse and touch input modes (touch simulated on desktop, and used for the real Android build)
+- Android build (landscape-locked, matching the fixed-camera desktop layout)
 - OGG sound effects, particle effects, hit flash + tower outline shaders
 - Croatian and English localization
 
@@ -28,6 +30,7 @@ Tower defense maze game — build towers to block enemies from reaching the fini
 brajnovic-td/
 ├── core/          ← all game logic (platform-independent)
 ├── lwjgl3/        ← desktop launcher
+├── android/       ← Android launcher
 ├── assets/        ← everything the game loads
 │   ├── data/         ← towers.json, enemies.json, levels/*.json
 │   ├── maps/          ← Tiled .tmx level layouts
@@ -81,3 +84,14 @@ gradlew.bat lwjgl3:jar
 ```
 
 Generates a runnable `.jar` in `lwjgl3/build/libs/`.
+
+## Android Build
+
+Prerequisite: Android SDK (platform-tools, `platforms;android-36`, `build-tools;36.0.0`), with `sdk.dir` set in a local (gitignored) `local.properties` at the repo root.
+
+```
+gradlew.bat :android:assembleDebug    # android/build/outputs/apk/debug/android-debug.apk
+gradlew.bat :android:installDebug     # build + install onto a connected device/emulator
+```
+
+The debug APK is signed with the auto-generated debug keystore, so it can be sideloaded directly (copy it to a phone, open it, allow "install from unknown sources" if prompted). Orientation is locked to landscape.

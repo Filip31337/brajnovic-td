@@ -45,12 +45,24 @@ public final class SkinFactory {
     }
 
     public static Skin createSkin() {
+        return createSkin(1f);
+    }
+
+    /**
+     * @param uiScale Rendered/viewed size multiplier the caller intends to apply (e.g. via
+     *                {@code ScreenViewport.setUnitsPerPixel(1f / uiScale)}). Fonts are generated at
+     *                {@code size * uiScale} pixels for a crisp glyph texture, then
+     *                {@link BitmapFont#getData()}'s scale is divided back down by the same factor so
+     *                their *layout* metrics (line height, etc.) stay identical to the {@code uiScale == 1}
+     *                case — only the source texture resolution changes. Pass 1f for no scaling.
+     */
+    public static Skin createSkin(float uiScale) {
         Skin skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
-        replaceFontsWithLocalizedVersions(skin);
+        replaceFontsWithLocalizedVersions(skin, uiScale);
         return skin;
     }
 
-    private static void replaceFontsWithLocalizedVersions(Skin skin) {
+    private static void replaceFontsWithLocalizedVersions(Skin skin, float uiScale) {
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal(FONT_FILE));
 
         String[] names = {"default", "font", "list", "subtitle", "window"};
@@ -59,7 +71,7 @@ public final class SkinFactory {
         IdentityMap<BitmapFont, BitmapFont> replacements = new IdentityMap<>();
         for (int i = 0; i < names.length; i++) {
             BitmapFont oldFont = skin.getFont(names[i]);
-            BitmapFont newFont = generateFont(generator, sizes[i]);
+            BitmapFont newFont = generateFont(generator, sizes[i], uiScale);
             replacements.put(oldFont, newFont);
             skin.add(names[i], newFont, BitmapFont.class);
         }
@@ -76,13 +88,15 @@ public final class SkinFactory {
         }
     }
 
-    private static BitmapFont generateFont(FreeTypeFontGenerator generator, int size) {
+    private static BitmapFont generateFont(FreeTypeFontGenerator generator, int size, float uiScale) {
         FreeTypeFontParameter parameter = new FreeTypeFontParameter();
-        parameter.size = size;
+        parameter.size = Math.round(size * uiScale);
         parameter.characters = FreeTypeFontGenerator.DEFAULT_CHARS + EXTRA_CHARS;
         parameter.minFilter = TextureFilter.Linear;
         parameter.magFilter = TextureFilter.Linear;
-        return generator.generateFont(parameter);
+        BitmapFont font = generator.generateFont(parameter);
+        font.getData().setScale(1f / uiScale);
+        return font;
     }
 
     private static void replaceFontFields(Object style, IdentityMap<BitmapFont, BitmapFont> replacements) {
