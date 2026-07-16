@@ -186,6 +186,8 @@ public class GameScreen implements Screen {
     private TextButton normalSpeedButton;
     private TextButton fastSpeedButton;
     private CheckBox rememberSpeedCheckBox;
+    private CheckBox buildHexGridCheckBox;
+    private boolean showBuildHexGrid = false;
     private float timeScale = WaveSpeedSettings.isRemembered() ? WaveSpeedSettings.getPreferredTimeScale() : 1f;
 
     private Window overlayWindow;
@@ -690,7 +692,20 @@ public class GameScreen implements Screen {
                 }
             }
         });
-        root.add(rememberSpeedCheckBox).padBottom(8).left().row();
+
+        buildHexGridCheckBox = new CheckBox(" " + Localization.get("hud.buildHexGrid"), skin);
+        buildHexGridCheckBox.setChecked(showBuildHexGrid);
+        buildHexGridCheckBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                showBuildHexGrid = buildHexGridCheckBox.isChecked();
+            }
+        });
+
+        Table checkBoxRow = new Table();
+        checkBoxRow.add(rememberSpeedCheckBox).left();
+        checkBoxRow.add(buildHexGridCheckBox).left().padLeft(12);
+        root.add(checkBoxRow).padBottom(8).left().row();
 
         startWaveButton = new TextButton(Localization.get("hud.startWave"), skin);
         startWaveButton.addListener(new ChangeListener() {
@@ -1370,6 +1385,10 @@ public class GameScreen implements Screen {
                     TowerUpgrade.rangeForLevel(hoveredTower.definition, hoveredTower.level));
             }
         }
+        if (selectedTowerId != null && showBuildHexGrid) {
+            shapeRenderer.setColor(Color.BLACK);
+            drawBuildGrid();
+        }
         shapeRenderer.end();
 
         lightEffectManager.update(delta);
@@ -1651,6 +1670,23 @@ public class GameScreen implements Screen {
 
     private void drawRangeCircle(float centerTileX, float centerTileY, float radiusTiles) {
         shapeRenderer.circle(centerTileX * SCALE, centerTileY * SCALE, radiusTiles * SCALE, 64);
+    }
+
+    /** Purely decorative square grid overlay (one line per tile boundary) drawn across the whole map
+     * while placing a tower (selectedTowerId != null) -- not tied to GridMap buildability, just a visual
+     * aid matching the 32x32 source tile grid at the project's 2x render scale (SCALE). */
+    private void drawBuildGrid() {
+        float mapWidthPx = gridMap.getWidthInTiles() * SCALE;
+        float mapHeightPx = gridMap.getHeightInTiles() * SCALE;
+
+        for (int column = 0; column <= gridMap.getWidthInTiles(); column++) {
+            float x = column * SCALE;
+            shapeRenderer.line(x, 0f, x, mapHeightPx);
+        }
+        for (int row = 0; row <= gridMap.getHeightInTiles(); row++) {
+            float y = row * SCALE;
+            shapeRenderer.line(0f, y, mapWidthPx, y);
+        }
     }
 
     private Entity findTowerAt(int gridX, int gridY) {
