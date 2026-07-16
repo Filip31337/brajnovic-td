@@ -40,8 +40,13 @@ public class OptionsScreen implements Screen {
         Label title = new Label(Localization.get("options.title"), skin, "window");
         root.add(title).colspan(2).padBottom(40).row();
 
+        // Android's 4x MENU_UI_SCALE makes every row much taller, and this screen has no ScrollPane, so
+        // on top of the desktop layout the content overflowed the screen and hid the back button. Folding
+        // each section's label into its control row (instead of its own row) reclaims vertical space --
+        // desktop keeps the original label-then-controls layout since it isn't cramped.
+        boolean android = GameConstants.isAndroid();
+
         Label languageLabel = new Label(Localization.get("options.language"), skin);
-        root.add(languageLabel).colspan(2).padBottom(12).row();
 
         TextButton croatianButton = new TextButton("Hrvatski", skin);
         croatianButton.setDisabled(Localization.LANGUAGE_CROATIAN.equals(Localization.getLanguage()));
@@ -52,7 +57,6 @@ public class OptionsScreen implements Screen {
                 game.setScreen(new OptionsScreen(game));
             }
         });
-        root.add(croatianButton).width(160).padRight(12).padBottom(30);
 
         TextButton englishButton = new TextButton("English", skin);
         englishButton.setDisabled(Localization.LANGUAGE_ENGLISH.equals(Localization.getLanguage()));
@@ -63,10 +67,20 @@ public class OptionsScreen implements Screen {
                 game.setScreen(new OptionsScreen(game));
             }
         });
-        root.add(englishButton).width(160).padBottom(30).row();
+
+        if (android) {
+            Table languageRow = new Table();
+            languageRow.add(languageLabel).padRight(12);
+            languageRow.add(croatianButton).width(160).padRight(12);
+            languageRow.add(englishButton).width(160);
+            root.add(languageRow).colspan(2).padBottom(30).row();
+        } else {
+            root.add(languageLabel).colspan(2).padBottom(12).row();
+            root.add(croatianButton).width(160).padRight(12).padBottom(30);
+            root.add(englishButton).width(160).padBottom(30).row();
+        }
 
         Label volumeLabel = new Label(Localization.get("options.volume"), skin);
-        root.add(volumeLabel).colspan(2).padBottom(12).row();
 
         Table volumeRow = new Table();
         Slider volumeSlider = new Slider(0f, 1f, 0.05f, false, skin);
@@ -79,9 +93,6 @@ public class OptionsScreen implements Screen {
                 volumePercentLabel.setText(volumePercentText(volumeSlider.getValue()));
             }
         });
-        volumeRow.add(volumeSlider).width(200).padRight(12);
-        volumeRow.add(volumePercentLabel).width(44).left();
-        root.add(volumeRow).colspan(2).padBottom(20).row();
 
         CheckBox muteCheckBox = new CheckBox(" " + Localization.get("options.mute"), skin);
         muteCheckBox.setChecked(SoundManager.isMuted());
@@ -91,12 +102,24 @@ public class OptionsScreen implements Screen {
                 SoundManager.setMuted(muteCheckBox.isChecked());
             }
         });
-        root.add(muteCheckBox).colspan(2).padBottom(30).row();
+
+        if (android) {
+            volumeRow.add(volumeLabel).padRight(12);
+            volumeRow.add(volumeSlider).width(200).padRight(12);
+            volumeRow.add(volumePercentLabel).width(44).padRight(12).left();
+            volumeRow.add(muteCheckBox).left();
+            root.add(volumeRow).colspan(2).padBottom(30).row();
+        } else {
+            root.add(volumeLabel).colspan(2).padBottom(12).row();
+            volumeRow.add(volumeSlider).width(200).padRight(12);
+            volumeRow.add(volumePercentLabel).width(44).left();
+            root.add(volumeRow).colspan(2).padBottom(20).row();
+            root.add(muteCheckBox).colspan(2).padBottom(30).row();
+        }
 
         Label inputModeLabel = new Label(Localization.get("options.inputMode"), skin);
-        root.add(inputModeLabel).colspan(2).padBottom(12).row();
 
-        TextButton mouseButton = new TextButton("Mouse", skin);
+        TextButton mouseButton = new TextButton(Localization.get("options.inputMode.mouse"), skin);
         mouseButton.setDisabled(InputMode.MOUSE.equals(InputSettings.getMode()));
         mouseButton.addListener(new ChangeListener() {
             @Override
@@ -105,9 +128,8 @@ public class OptionsScreen implements Screen {
                 game.setScreen(new OptionsScreen(game));
             }
         });
-        root.add(mouseButton).width(160).padRight(12).padBottom(30);
 
-        TextButton touchButton = new TextButton("Touch", skin);
+        TextButton touchButton = new TextButton(Localization.get("options.inputMode.touch"), skin);
         touchButton.setDisabled(InputMode.TOUCH.equals(InputSettings.getMode()));
         touchButton.addListener(new ChangeListener() {
             @Override
@@ -116,7 +138,18 @@ public class OptionsScreen implements Screen {
                 game.setScreen(new OptionsScreen(game));
             }
         });
-        root.add(touchButton).width(160).padBottom(30).row();
+
+        if (android) {
+            Table inputModeRow = new Table();
+            inputModeRow.add(inputModeLabel).padRight(12);
+            inputModeRow.add(mouseButton).width(160).padRight(12);
+            inputModeRow.add(touchButton).width(160);
+            root.add(inputModeRow).colspan(2).padBottom(30).row();
+        } else {
+            root.add(inputModeLabel).colspan(2).padBottom(12).row();
+            root.add(mouseButton).width(160).padRight(12).padBottom(30);
+            root.add(touchButton).width(160).padBottom(30).row();
+        }
 
         TextButton backButton = new TextButton(Localization.get("options.back"), skin);
         backButton.addListener(new ChangeListener() {

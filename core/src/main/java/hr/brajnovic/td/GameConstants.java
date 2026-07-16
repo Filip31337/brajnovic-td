@@ -56,7 +56,7 @@ public final class GameConstants {
     public static final float MENU_UI_SCALE = isAndroid() ? 4f : 1f;
     public static final float HUD_UI_SCALE = isAndroid() ? 3f : 1f;
 
-    private static boolean isAndroid() {
+    public static boolean isAndroid() {
         return Gdx.app != null && Gdx.app.getType() == ApplicationType.Android;
     }
 
