@@ -107,7 +107,8 @@ public class GameScreen implements Screen {
     private static final Color NO_STATUS_TINT = new Color(1f, 1f, 1f, 0f);
     private static final float HIT_FLASH_PEAK_STRENGTH = 0.375f;
 
-    // No boss art yet - reused orc_atlas rendered bigger + permanently red-tinted (see computeStatusTintColor).
+    // No dedicated boss art yet - bosses reuse their base enemy's sprite sheet rendered bigger and
+    // permanently red-tinted (see computeStatusTintColor).
     private static final float BOSS_VISUAL_SCALE = 1.6f;
 
     private static final float OVERLAY_FADE_IN_SECONDS = 0.4f;
@@ -1146,13 +1147,13 @@ public class GameScreen implements Screen {
         if (!buildPhase) {
             selectedTowerId = null;
             selectedTowerEntity = null;
-        } else {
-            timeScale = WaveSpeedSettings.isRemembered() ? WaveSpeedSettings.getPreferredTimeScale() : 1f;
         }
 
-        pauseButton.setDisabled(buildPhase || timeScale == 0f);
-        normalSpeedButton.setDisabled(buildPhase || timeScale == 1f);
-        fastSpeedButton.setDisabled(buildPhase || timeScale == 2f);
+        // Speed controls are clickable in both BUILD and WAVE (unlike the tower/placement controls above) --
+        // a button only self-disables when it already matches the current timeScale.
+        pauseButton.setDisabled(timeScale == 0f);
+        normalSpeedButton.setDisabled(timeScale == 1f);
+        fastSpeedButton.setDisabled(timeScale == 2f);
 
         nextWaveTimerLabel.setText(
             waveController.isBuildPhaseTimerActive()
